@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  userType  String   @map("user_type") // 교원, 직원, 공무직, 기간제교사 등
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  role      String?  @default("USER") // SUPER_ADMIN, TRAINING_ADMIN, USER
+  pinHash   String?  @map("pin_hash") // 4자리 PIN 해시
+  mustSetPin Boolean @default(true) @map("must_set_pin") // PIN 설정 필요 여부
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  trainingParticipants TrainingParticipant[]
+  reminders           TrainingReminder[]
+
+  @@map("users")
+}
+
+model Training {
+  id               String   @id @default(uuid())
+  name             String   // 연수명
+  registrationBook String?  @map("registration_book") // 연수등록부
+  cycle            String?  // 이수 주기 (1년, 학기, 3년 등)
+  targetUsers      String[] @map("target_users") // 대상자 범위 (JSON 배열)
+  hours            String?  // 이수시간
+  implementationDate String? @map("implementation_date") // 실시일
+  department       String?  // 업무부서
+  manager          String   // 담당자 (필수)
+  method           String?  // 연수자료 및 방법
+  methodLink       String?  @map("method_link") // 연수자료 링크
+  deadline         DateTime? // 이수 종료 기간
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  participants TrainingParticipant[]
+  reminders    TrainingReminder[]
+
+  @@map("trainings")
+}
+
+model TrainingParticipant {
+  id              String    @id @default(uuid())
+  trainingId      String    @map("training_id")
+  userId          String    @map("user_id")
+  completionNumber String?  @map("completion_number") // 이수번호
+  status          String    @default("pending") // pending, completed
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingId, userId])
+  @@map("training_participants")
+}
+
+model TrainingReminder {
+  id           String   @id @default(uuid())
+  trainingId   String   @map("training_id")
+  userId       String   @map("user_id")
+  reminderType String   @map("reminder_type") // 3months, 1month, missing
+  sentAt       DateTime @default(now()) @map("sent_at")
+  status       String   @default("sent") // sent, failed
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("training_reminders")
+}
+
