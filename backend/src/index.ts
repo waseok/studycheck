@@ -24,7 +24,7 @@ const allowedOrigins = process.env.FRONTEND_URL
   : ['http://localhost:5173']
 
 app.use(cors({
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // origin이 없으면 (같은 도메인에서 요청) 허용
     if (!origin) return callback(null, true)
     
