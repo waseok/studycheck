@@ -22,6 +22,12 @@
 6. 프론트엔드 기본 구조 완료
 7. 인증 시스템 구현 완료
 8. 로그인 기능 작동 확인
+9. 엑셀 내보내기 기능 추가
+10. 이메일 테스트 기능 추가
+11. **프로덕션 배포 완료** (2024년 11월)
+    - 백엔드: Render (https://studycheck.onrender.com)
+    - 프론트엔드: Vercel (https://studycheck-liard.vercel.app)
+    - GitHub: https://github.com/waseok/studycheck
 
 ### 🔧 설정 완료된 내용
 - **백엔드 서버**: 포트 3000
@@ -94,8 +100,15 @@ npm run dev
 ```
 
 ### 브라우저 접속
+
+#### 로컬 개발 환경
 - URL: http://localhost:5173
 - 로그인 비밀번호: `1234` (일반) 또는 `8714` (관리자)
+
+#### 프로덕션 환경
+- URL: https://studycheck-liard.vercel.app
+- 로그인 비밀번호: `1234` (일반) 또는 `8714` (관리자)
+- 백엔드 API: https://studycheck.onrender.com
 
 ## 알려진 이슈
 
@@ -118,10 +131,12 @@ npm run dev
    - 연수 등록
    - 테스트 데이터 입력
 
-3. **배포 준비**
-   - 환경 변수 설정 (프로덕션)
-   - Vercel 배포 (프론트엔드)
-   - Railway/Render 배포 (백엔드)
+3. **배포 완료** ✅
+   - 환경 변수 설정 완료 (프로덕션)
+   - Vercel 배포 완료 (프론트엔드)
+   - Render 배포 완료 (백엔드)
+   - CORS 설정 완료
+   - 로그인 테스트 완료
 
 ## 프로젝트 구조
 

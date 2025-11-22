@@ -59,15 +59,27 @@ cd frontend && npm run dev
 6. ✅ 인증 시스템
 7. ✅ 로그인 기능
 8. ✅ ProtectedRoute 구현
+9. ✅ 엑셀 내보내기 기능 추가
+10. ✅ 이메일 테스트 기능 추가
+11. ✅ **프로덕션 배포 완료** (2024년 11월)
 
 ### 해결된 이슈
 1. ✅ 환경 변수 로드 문제
 2. ✅ 로그인 후 메뉴 클릭 시 리다이렉트 문제
+3. ✅ Render 배포 시 TypeScript 타입 오류 해결
+4. ✅ Vercel 배포 시 환경 변수 타입 오류 해결
+
+### 배포 정보
+- **GitHub 저장소**: https://github.com/waseok/studycheck
+- **백엔드 (Render)**: https://studycheck.onrender.com
+- **프론트엔드 (Vercel)**: https://studycheck-liard.vercel.app
+- **데이터베이스**: Neon PostgreSQL (클라우드)
+- **배포 상태**: ✅ 정상 작동 중
 
 ### 다음 작업 (필요 시)
-1. 이메일 설정 (SMTP)
+1. 이메일 설정 (SMTP) - 보류 중
 2. 데이터 입력 (교직원, 연수)
-3. 배포 준비
+3. 사용자 피드백 수집 및 개선
 
 ## 문제 해결
 
