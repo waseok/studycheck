@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { isAdmin } from '../api/auth'
 import { getTrainings, createTraining, updateTraining, deleteTraining } from '../api/trainings'
 import { Training } from '../types'
 
