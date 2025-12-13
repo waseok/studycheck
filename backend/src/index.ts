@@ -21,7 +21,14 @@ const PORT = process.env.PORT || 3000
 // CORS 설정: 개발 환경과 프로덕션 환경 모두 지원
 const allowedOrigins = process.env.FRONTEND_URL 
   ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-  : ['http://localhost:5173']
+  : ['http://localhost:5173', 'https://studycheck-liard.vercel.app']
+
+// 허용된 origin 목록에 Vercel 도메인 추가 (기본값)
+if (!allowedOrigins.includes('https://studycheck-liard.vercel.app')) {
+  allowedOrigins.push('https://studycheck-liard.vercel.app')
+}
+
+console.log('🌐 CORS 허용된 Origin 목록:', allowedOrigins)
 
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -32,6 +39,8 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       callback(null, true)
     } else {
+      console.warn('⚠️ CORS 차단된 Origin:', origin)
+      console.warn('⚠️ 허용된 Origin 목록:', allowedOrigins)
       callback(new Error('CORS 정책에 의해 차단되었습니다.'))
     }
   },

@@ -5,6 +5,13 @@ import axios from 'axios'
 // 프로덕션에서는 환경 변수가 없으면 기본 백엔드 URL 사용
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
 
+// 디버깅: API URL 로그
+if (typeof window !== 'undefined') {
+  console.log('🔗 API URL:', API_URL)
+  console.log('🔗 VITE_API_URL:', import.meta.env.VITE_API_URL)
+  console.log('🔗 NODE_ENV:', import.meta.env.MODE)
+}
+
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -77,14 +84,18 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
-    // 디버깅용 (개발 환경에서만)
+    // 디버깅용 (모든 환경에서)
     console.error('❌ API 에러 발생:', {
       status: error.response?.status,
       message: error.response?.data?.error || error.message,
       url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      fullURL: error.config?.baseURL + error.config?.url,
       method: error.config?.method,
       hasToken: !!localStorage.getItem('token'),
       currentPath: window.location.pathname,
+      errorCode: error.code,
+      errorMessage: error.message,
     })
 
     // 401 에러 처리 (인증 실패) — 원래 동작: 토큰 제거 후 로그인 페이지로 이동
