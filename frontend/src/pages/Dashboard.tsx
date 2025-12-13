@@ -1,160 +1,288 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { isAdmin } from '../api/auth'
-import { testEmail, sendReminders } from '../api/reminders'
+import { isAdmin, getRole } from '../api/auth'
+import { getTrainings } from '../api/trainings'
+import { getMyTrainings } from '../api/participants'
+import { getIncompleteList } from '../api/stats'
+import { Training, TrainingParticipant } from '../types'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 
 const Dashboard = () => {
-  const [testEmailAddress, setTestEmailAddress] = useState('')
-  const [testEmailLoading, setTestEmailLoading] = useState(false)
-  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
-  const [reminderLoading, setReminderLoading] = useState(false)
-  const [reminderResult, setReminderResult] = useState<{ success: boolean; message?: string } | null>(null)
-
-  const handleTestEmail = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!testEmailAddress.trim()) {
-      setTestEmailResult({ success: false, error: '이메일 주소를 입력해주세요.' })
-      return
-    }
-
-    setTestEmailLoading(true)
-    setTestEmailResult(null)
-    try {
-      const result = await testEmail(testEmailAddress.trim())
-      setTestEmailResult(result)
-      if (result.success) {
-        setTestEmailAddress('')
-      }
-    } catch (error: any) {
-      setTestEmailResult({
-        success: false,
-        error: error.response?.data?.error || '이메일 테스트 중 오류가 발생했습니다.'
-      })
-    } finally {
-      setTestEmailLoading(false)
-    }
-  }
-
-  const handleSendReminders = async () => {
-    if (!confirm('리마인더를 수동으로 발송하시겠습니까?')) {
-      return
-    }
-
-    setReminderLoading(true)
-    setReminderResult(null)
-    try {
-      const result = await sendReminders()
-      setReminderResult(result)
-    } catch (error: any) {
-      setReminderResult({
-        success: false,
-        message: error.response?.data?.error || '리마인더 발송 중 오류가 발생했습니다.'
-      })
-    } finally {
-      setReminderLoading(false)
-    }
-  }
-
+  const [myTrainings, setMyTrainings] = useState<TrainingParticipant[]>([])
+  const [allTrainings, setAllTrainings] = useState<Training[]>([])
+  const [incompleteList, setIncompleteList] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
   const adminUser = isAdmin()
+  const role = getRole()
+  
+  const COLORS = ['#00C49F', '#FF8042']
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      // 모든 사용자: 내 연수 목록
+      const myTrainingsData = await getMyTrainings()
+      // 미완료 연수를 위로 정렬
+      const sorted = [...myTrainingsData].sort((a, b) => {
+        if (a.status === 'completed' && b.status !== 'completed') return 1
+        if (a.status !== 'completed' && b.status === 'completed') return -1
+        return 0
+      })
+      setMyTrainings(sorted)
+
+      // 관리자: 전체 연수 목록 및 통계
+      if (adminUser || role === 'TRAINING_ADMIN') {
+        const trainingsData = await getTrainings()
+        setAllTrainings(trainingsData)
+        
+        const incompleteData = await getIncompleteList()
+        setIncompleteList(incompleteData)
+      }
+    } catch (error) {
+      console.error('데이터 조회 오류:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  // 연수별 통계 계산
+  const trainingStats = allTrainings.map(training => {
+    const total = training.participants?.length || 0
+    const completed = training.participants?.filter((p: any) => p.status === 'completed').length || 0
+    const pending = total - completed
+    const completionRate = total > 0 ? (completed / total) * 100 : 0
+    
+    return {
+      id: training.id,
+      name: training.name,
+      total,
+      completed,
+      pending,
+      completionRate,
+      pieData: [
+        { name: '완료', value: completed },
+        { name: '미완료', value: pending }
+      ]
+    }
+  })
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="text-center py-8">로딩 중...</div>
+      </Layout>
+    )
+  }
 
   return (
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">대시보드</h1>
-          <p className="mt-2 text-gray-600">의무연수 안내 취합 통합 플랫폼에 오신 것을 환영합니다.</p>
+          <h1 className="text-4xl font-bold text-blue-800 mb-2">🏠 대시보드</h1>
+          <p className="text-lg text-gray-700">의무연수 안내 취합 통합 플랫폼에 오신 것을 환영합니다.</p>
         </div>
 
-        {adminUser && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 이메일 테스트 카드 */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">이메일 설정 테스트</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                SMTP 설정이 올바른지 확인하기 위해 테스트 이메일을 발송할 수 있습니다.
-              </p>
-              
-              <form onSubmit={handleTestEmail} className="space-y-4">
-                <div>
-                  <label htmlFor="test-email" className="block text-sm font-medium text-gray-700 mb-2">
-                    테스트 이메일 주소
-                  </label>
-                  <input
-                    id="test-email"
-                    type="email"
-                    value={testEmailAddress}
-                    onChange={(e) => setTestEmailAddress(e.target.value)}
-                    placeholder="test@example.com"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    disabled={testEmailLoading}
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={testEmailLoading || !testEmailAddress.trim()}
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {testEmailLoading ? '발송 중...' : '테스트 이메일 발송'}
-                </button>
-              </form>
-
-              {testEmailResult && (
-                <div className={`mt-4 p-3 rounded-md ${
-                  testEmailResult.success 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  <p className="text-sm font-medium">
-                    {testEmailResult.success ? '✓ 성공' : '✗ 실패'}
-                  </p>
-                  <p className="text-sm mt-1">
-                    {testEmailResult.message || testEmailResult.error}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-800">
-                  <strong>참고:</strong> 이메일을 받지 못했다면 <code className="bg-blue-100 px-1 rounded">backend/.env</code> 파일의 SMTP 설정을 확인해주세요.
-                </p>
-              </div>
-            </div>
-
-            {/* 리마인더 수동 발송 카드 */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">리마인더 수동 발송</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                스케줄러를 기다리지 않고 즉시 리마인더를 발송할 수 있습니다.
-              </p>
-              
-              <button
-                onClick={handleSendReminders}
-                disabled={reminderLoading}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {reminderLoading ? '발송 중...' : '리마인더 발송'}
-              </button>
-
-              {reminderResult && (
-                <div className={`mt-4 p-3 rounded-md ${
-                  reminderResult.success 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  <p className="text-sm">
-                    {reminderResult.message || '리마인더 발송이 완료되었습니다.'}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                <p className="text-xs text-gray-600">
-                  <strong>참고:</strong> 일반적으로 리마인더는 매일 오전 9시에 자동으로 발송됩니다.
-                </p>
-              </div>
-            </div>
+        {/* 나의 연수 목록 */}
+        <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-blue-800">✏️ 나의 연수</h2>
+            <Link 
+              to="/dashboard/my-trainings" 
+              className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+            >
+              전체 보기 →
+            </Link>
           </div>
+          
+          {myTrainings.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              참여 중인 연수가 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myTrainings.slice(0, 5).map((participant) => {
+                const training = participant.training
+                if (!training) return null
+
+                return (
+                  <div 
+                    key={participant.id} 
+                    className={`p-4 rounded-xl border-2 ${
+                      participant.status !== 'completed' 
+                        ? 'border-yellow-300 bg-yellow-50' 
+                        : 'border-green-200 bg-green-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{training.name}</h3>
+                        {training.deadline && (
+                          <p className={`text-sm mt-1 font-semibold ${
+                            participant.status !== 'completed' ? 'text-red-600 text-base' : 'text-gray-600'
+                          }`}>
+                            이수 기한: {new Date(training.deadline).toLocaleDateString('ko-KR')}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${
+                          participant.status === 'completed'
+                            ? 'bg-green-200 text-green-800'
+                            : 'bg-yellow-200 text-yellow-800'
+                        }`}
+                      >
+                        {participant.status === 'completed' ? '완료' : '미완료'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 관리자/연수 관리자용: 연수 목록 및 통계 */}
+        {(adminUser || role === 'TRAINING_ADMIN') && (
+          <>
+            {/* 연수 목록 */}
+            <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-blue-800">📖 연수 목록</h2>
+                <Link 
+                  to="/dashboard/trainings" 
+                  className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                >
+                  전체 보기 →
+                </Link>
+              </div>
+              
+              {allTrainings.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  등록된 연수가 없습니다.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {allTrainings.slice(0, 5).map((training) => {
+                    const total = training.participants?.length || 0
+                    const completed = training.participants?.filter((p: any) => p.status === 'completed').length || 0
+                    const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0
+
+                    return (
+                      <div key={training.id} className="p-4 rounded-xl border-2 border-blue-200 bg-blue-50">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900">{training.name}</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              참여자: {total}명 | 완료: {completed}명 | 완료율: {completionRate}%
+                            </p>
+                          </div>
+                          <Link
+                            to={`/dashboard/trainings/${training.id}`}
+                            className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                          >
+                            상세 보기 →
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 연수 통계 */}
+            <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-blue-800">📊 연수 통계</h2>
+                <Link 
+                  to="/dashboard/stats" 
+                  className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                >
+                  전체 보기 →
+                </Link>
+              </div>
+              
+              {trainingStats.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  통계 데이터가 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {trainingStats.slice(0, 4).map((stat) => (
+                    <div key={stat.id} className="p-4 rounded-xl border-2 border-blue-200 bg-blue-50">
+                      <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+                        {stat.name.length > 20 ? stat.name.substring(0, 20) + '...' : stat.name}
+                      </h3>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
+                          <ResponsiveContainer width={80} height={80}>
+                            <PieChart>
+                              <Pie
+                                data={stat.pieData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                outerRadius={35}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {stat.pieData.map((_entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 text-xs">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                            <span>완료: {stat.completed}명</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                            <span>미완료: {stat.pending}명</span>
+                          </div>
+                          <div className="pt-2 font-semibold text-blue-600">
+                            이수율: {stat.completionRate.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 미이수자 목록 */}
+            {incompleteList.length > 0 && (
+              <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-red-200">
+                <h2 className="text-2xl font-bold text-red-800 mb-4">⚠️ 미이수자 알림</h2>
+                <div className="space-y-2">
+                  {incompleteList.slice(0, 5).map((item) => (
+                    <div key={item.id} className="p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm">
+                        <span className="font-semibold">{item.user?.name || '-'}</span>님의{' '}
+                        <span className="font-semibold">{item.training?.name || '-'}</span> 연수가 미완료 상태입니다.
+                      </p>
+                    </div>
+                  ))}
+                  {incompleteList.length > 5 && (
+                    <p className="text-sm text-gray-600 text-center mt-2">
+                      외 {incompleteList.length - 5}명의 미이수자가 있습니다.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </Layout>

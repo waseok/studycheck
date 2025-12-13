@@ -1,110 +1,160 @@
 # 컨텍스트 연속 가이드
 
-## 새 대화를 시작할 때
-
-새로운 대화 세션이 시작되면 다음을 말씀해주세요:
-
+## 새 대화 시작 시
 ```
 의무연수 안내 취합 통합 플랫폼 프로젝트를 이어가고 싶습니다.
-PROJECT_STATUS.md 파일을 확인해주세요.
-```
-
-또는:
-
-```
-PROJECT_STATUS.md를 읽고 프로젝트 상태를 확인해주세요.
+CONTEXT_CONTINUATION.md를 확인해주세요.
 ```
 
 ## 프로젝트 핵심 정보
 
-### 프로젝트 경로
-```
-/Users/air/Library/CloudStorage/GoogleDrive-lds43890@ssem.re.kr/내 드라이브/동수동수동수동수동수동수동수동수/cursor/의무연수 안내 취합 통합 플랫폼
-```
+**경로**: `/Users/air/Library/CloudStorage/GoogleDrive-lds43890@ssem.re.kr/내 드라이브/동수동수동수동수동수동수동수동수/cursor/의무연수 안내 취합 통합 플랫폼`
 
-### 주요 파일
-- `PROJECT_STATUS.md` - 프로젝트 상태 요약
-- `PROJECT_PLAN.md` - 프로젝트 계획서
-- `README.md` - 프로젝트 개요
-- `QUICK_START.md` - 빠른 시작 가이드
-- `NEXT_STEPS.md` - 다음 단계 가이드
-- `DATABASE_SETUP.md` - 데이터베이스 설정 가이드
+**기술 스택**:
+- 프론트엔드: React + TypeScript + Vite + Tailwind CSS
+- 백엔드: Node.js + Express + TypeScript + Prisma
+- DB: Neon PostgreSQL
+- 배포: Vercel (프론트), Render (백엔드)
 
-### 환경 설정
-- **백엔드**: `backend/.env` 파일에 환경 변수 설정
-- **프론트엔드**: `frontend/` 폴더
-- **데이터베이스**: Neon PostgreSQL (클라우드)
-
-### 실행 방법
+**실행**:
 ```bash
-# 백엔드
-cd backend && npm run dev
-
-# 프론트엔드
-cd frontend && npm run dev
+cd backend && npm run dev  # 포트 3000
+cd frontend && npm run dev # 포트 5173
 ```
 
-### 로그인 정보
-- 일반 교직원: `1234`
-- 관리자: `8714`
+**로그인**:
+- 일반: 이메일 + PIN 또는 초기 비밀번호 `1234`
+- 관리자: 비밀번호 `8714`
+- Google 로그인 지원
 
-## 현재 작업 상태
+**배포 URL**:
+- 프론트: https://studycheck-liard.vercel.app
+- 백엔드: https://studycheck.onrender.com
 
-### 완료된 작업
-1. ✅ 프로젝트 구조 생성
-2. ✅ Node.js 설치
-3. ✅ 데이터베이스 연결 (Neon)
-4. ✅ 백엔드 API 구현
-5. ✅ 프론트엔드 구현
-6. ✅ 인증 시스템
-7. ✅ 로그인 기능
-8. ✅ ProtectedRoute 구현
-9. ✅ 엑셀 내보내기 기능 추가
-10. ✅ 이메일 테스트 기능 추가
-11. ✅ **프로덕션 배포 완료** (2024년 11월)
+## 현재 상태 (2024년 12월)
 
-### 해결된 이슈
-1. ✅ 환경 변수 로드 문제
-2. ✅ 로그인 후 메뉴 클릭 시 리다이렉트 문제
-3. ✅ Render 배포 시 TypeScript 타입 오류 해결
-4. ✅ Vercel 배포 시 환경 변수 타입 오류 해결
+### 최근 작업 완료
+1. ✅ 교직원 등록에 학년/반/직위 필드 추가
+2. ✅ 로그인 페이지 개선 (아이디/비밀번호 저장, 입력칸 대비 증가)
+3. ✅ 연수 등록부 필드 제거
+4. ✅ 연수 취합 페이지 개선 (정렬/필터링, 컬럼 순서 변경)
+5. ✅ 미이수자 알림 메일 발송 기능 (연수 관리 페이지에 버튼 추가)
+6. ✅ Google 로그인 기능 추가
+7. ✅ **로그인 문제 해결** (백엔드 서버 시작 오류, Prisma 스키마 불일치 해결)
+8. ✅ **참여자 조회 문제 해결** (데이터베이스 필드 불일치 해결)
+9. ✅ **회원가입 기능 추가** (이메일 ID, 직위/학년/반 선택 입력, 자동 교직원 등록)
+10. ✅ **연수 설명란 추가** (연수 등록/수정 시 설명 입력 가능)
+11. ✅ **연수 목록 다운로드 기능** (관리자용 엑셀 다운로드)
+12. ✅ **내 정보 수정 페이지 추가** (일반 사용자가 학년/반 등 본인 정보 수정 가능)
 
-### 배포 정보
-- **GitHub 저장소**: https://github.com/waseok/studycheck
-- **백엔드 (Render)**: https://studycheck.onrender.com
-- **프론트엔드 (Vercel)**: https://studycheck-liard.vercel.app
-- **데이터베이스**: Neon PostgreSQL (클라우드)
-- **배포 상태**: ✅ 정상 작동 중
+### 현재 이슈
+- 없음 (모든 기능 정상 작동)
 
-### 다음 작업 (필요 시)
-1. 이메일 설정 (SMTP) - 보류 중
-2. 데이터 입력 (교직원, 연수)
-3. 사용자 피드백 수집 및 개선
+## 로그인 관련
 
-## 문제 해결
+**Google OAuth 설정**:
+- 클라이언트 ID: `169923019842-sp11ru0l59ghkq95r18fv0a52teg19ru.apps.googleusercontent.com`
+- 환경 변수: 
+  - 프론트엔드: `VITE_GOOGLE_CLIENT_ID` (`.env` 파일)
+  - 백엔드: `GOOGLE_CLIENT_ID` (`.env` 파일)
 
-### 서버 실행 문제
-```bash
-# 백엔드 서버 확인
-lsof -ti:3000
+**로그인 파일 위치**:
+- 프론트엔드: `frontend/src/pages/Login.tsx`
+- 백엔드: `backend/src/controllers/auth.ts` (googleLogin, register 함수)
 
-# 프론트엔드 서버 확인
-lsof -ti:5173
+**회원가입**:
+- 회원가입 API: `/api/auth/register` (인증 불필요)
+- 회원가입 시 자동으로 교직원 등록, 일반 사용자(USER)로 설정
+- 입력 정보: 이름*, 이메일(ID)*, 유형*, 직위(선택), 학년(선택), 반(선택)
+- 가입 후 초기 비밀번호(1234)로 로그인하여 PIN 설정 필요
 
-# 서버 재시작
-cd backend && npm run dev
-cd frontend && npm run dev
-```
+**내 정보 수정**:
+- 페이지: `/dashboard/profile` (`frontend/src/pages/Profile.tsx`)
+- API: `GET /api/users/me`, `PUT /api/users/me` (본인만 수정 가능)
+- 수정 가능: 이름, 이메일, 유형, 직위, 학년, 반
+- 일반 사용자는 role과 isAdmin 수정 불가 (관리자 전용)
 
-### 환경 변수 확인
-```bash
-cd backend
-cat .env | grep -E "(SCHOOL_PASSWORD|ADMIN_PASSWORD|DATABASE_URL)"
-```
+**문제 해결 시 확인사항**:
+1. 백엔드 서버 실행 확인 (`http://localhost:3000/api/health`)
+2. Prisma 스키마와 데이터베이스 동기화 확인 (`npx prisma db push`)
+3. Prisma 클라이언트 재생성 필요 시 (`npm run db:generate`)
 
-## 참고사항
+## 중요 코드 위치
 
-- 모든 주요 설정과 상태는 `PROJECT_STATUS.md`에 기록되어 있습니다.
-- 새로운 기능을 추가하거나 문제를 해결한 후 `PROJECT_STATUS.md`를 업데이트하세요.
-- 중요한 변경사항은 이 파일에도 기록하세요.
+**로그인/인증**:
+- `backend/src/controllers/auth.ts` - 모든 로그인 로직 (googleLogin 포함)
+- `backend/src/routes/auth.ts` - 인증 라우트
+- `frontend/src/pages/Login.tsx` - 로그인 페이지
+- `frontend/src/api/auth.ts` - 인증 API 클라이언트
 
+**보안 핵심**:
+- `backend/src/controllers/participants.ts` - `getMyTrainings`: `userId`로만 필터링
+- `backend/src/middleware/auth.ts` - JWT 토큰 검증
+
+**주요 페이지**:
+- `frontend/src/pages/Dashboard.tsx` - 대시보드
+- `frontend/src/pages/Trainings.tsx` - 연수 관리 (미이수자 알림 발송 버튼, 연수 목록 다운로드, 설명란 추가)
+- `frontend/src/pages/TrainingCollection.tsx` - 연수 취합 (정렬/필터링 포함)
+- `frontend/src/pages/Users.tsx` - 교직원 관리 (학년/반/직위 필드)
+- `frontend/src/pages/Profile.tsx` - 내 정보 수정 (일반 사용자 본인 정보 수정)
+- `frontend/src/pages/Login.tsx` - 로그인/회원가입 (회원가입 버튼 및 모달 추가)
+
+## 보안 규칙
+
+1. **`getMyTrainings`**: `userId`가 없으면 빈 배열 반환, `userId`로만 필터링
+2. **관리자**: 모든 연수는 `/trainings` API 사용, `getMyTrainings`는 자신의 연수만
+3. **일반 사용자**: 항상 자신의 데이터만 조회
+
+## 빠른 시작
+
+1. **서버 실행 확인**:
+   ```bash
+   lsof -ti:3000,5173  # 실행 중인지 확인
+   # 없으면 각각 실행
+   cd backend && npm run dev
+   cd frontend && npm run dev
+   ```
+
+2. **데이터베이스 스키마 동기화** (필요 시):
+   ```bash
+   cd backend
+   npx prisma db push  # 스키마 변경 시
+   npm run db:generate  # Prisma 클라이언트 재생성
+   ```
+
+3. **주요 기능**:
+   - 회원가입: 로그인 페이지에서 "회원가입" 버튼 클릭
+   - 내 정보 수정: 상단 메뉴 "내 정보" 클릭 (학년/반 수정 가능)
+   - 연수 목록 다운로드: 연수 관리 페이지에서 "연수 목록 다운로드" 버튼 클릭
+
+4. **문제 해결 순서**:
+   - 백엔드 서버 실행 확인 (`curl http://localhost:3000/api/health`)
+   - Prisma 스키마와 데이터베이스 동기화 확인
+   - 브라우저 콘솔 오류 확인
+   - 백엔드 로그 확인 (`/tmp/backend.log`)
+
+## 최근 수정 사항 (2024년 12월)
+
+### 데이터베이스 스키마 변경
+- `User` 모델: `position`, `grade`, `class` 필드 추가 (회원가입 시 입력 가능)
+- `Training` 모델: `description` 필드 추가 (연수 설명란)
+
+### 새로 추가된 API
+- `POST /api/auth/register` - 회원가입 (인증 불필요)
+- `GET /api/users/me` - 현재 사용자 정보 조회
+- `PUT /api/users/me` - 현재 사용자 정보 수정
+
+### 주요 변경 파일
+- `backend/src/controllers/auth.ts` - register 함수 추가
+- `backend/src/controllers/users.ts` - getMyProfile, updateMyProfile 함수 추가
+- `backend/src/routes/users.ts` - `/me` 엔드포인트 추가
+- `backend/src/controllers/participants.ts` - select에서 position, grade, class 포함
+- `frontend/src/pages/Login.tsx` - 회원가입 모달 추가
+- `frontend/src/pages/Profile.tsx` - 새로 생성 (내 정보 수정 페이지)
+- `frontend/src/pages/Trainings.tsx` - 설명란 및 다운로드 기능 추가
+- `frontend/src/App.tsx` - `/dashboard/profile` 라우트 추가
+- `frontend/src/components/Layout.tsx` - "내 정보" 메뉴 추가
+
+## 참고
+- 상세 정보는 `PROJECT_STATUS.md`, `PROJECT_PLAN.md` 참고
+- 변경사항은 이 파일에 간단히 기록

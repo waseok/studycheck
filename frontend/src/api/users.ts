@@ -10,6 +10,9 @@ export const createUser = async (data: {
   name: string
   email: string
   userType?: string
+  position?: string
+  grade?: string
+  class?: string
   role?: 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER'
 }): Promise<User> => {
   const response = await apiClient.post<User>('/users', data)
@@ -18,7 +21,7 @@ export const createUser = async (data: {
 
 export const updateUser = async (
   id: string,
-  data: Partial<{ name: string; email: string; userType: string; role: 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER' }>
+  data: Partial<{ name: string; email: string; userType: string; position?: string; grade?: string; class?: string; role: 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER' }>
 ): Promise<User> => {
   const response = await apiClient.put<User>(`/users/${id}`, data)
   return response.data
@@ -46,6 +49,25 @@ export const bulkCreateUsers = async (file: File): Promise<{ success: boolean; m
       },
     }
   )
+  return response.data
+}
+
+// 현재 로그인한 사용자 정보 조회
+export const getMyProfile = async (): Promise<User> => {
+  const response = await apiClient.get<User>('/users/me')
+  return response.data
+}
+
+// 현재 로그인한 사용자 정보 수정
+export const updateMyProfile = async (data: {
+  name?: string
+  email?: string
+  userType?: string
+  position?: string
+  grade?: string
+  class?: string
+}): Promise<{ success: boolean; message: string; user: User }> => {
+  const response = await apiClient.put<{ success: boolean; message: string; user: User }>('/users/me', data)
   return response.data
 }
 

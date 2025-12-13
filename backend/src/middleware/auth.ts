@@ -45,12 +45,18 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { userId?: string; email?: string; isAdmin: boolean; role?: string; mustSetPin?: boolean; loginTime: number }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:47',message:'토큰 검증 성공',data:{path:req.path,hasUserId:!!decoded.userId,userId:decoded.userId,isAdmin:decoded.isAdmin,role:decoded.role,email:decoded.email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       req.user = decoded
       if (process.env.NODE_ENV === 'development') {
         console.log('토큰 검증 성공:', { path: req.path, userId: decoded.userId, isAdmin: decoded.isAdmin, role: decoded.role })
       }
       next()
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:54',message:'토큰 검증 실패',data:{path:req.path,error:error instanceof Error?error.message:'알 수 없는 오류'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       if (process.env.NODE_ENV === 'development') {
         console.error('토큰 검증 실패:', {
           path: req.path,

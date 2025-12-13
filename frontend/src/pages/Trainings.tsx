@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getTrainings, createTraining, updateTraining, deleteTraining } from '../api/trainings'
+import { sendIncompleteReminders } from '../api/reminders'
 import { Training } from '../types'
 
 const Trainings = () => {
@@ -12,6 +14,7 @@ const Trainings = () => {
   const [editingTraining, setEditingTraining] = useState<Training | null>(null)
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
     registrationBook: '',
     cycle: '',
     targetUsers: [] as string[],
@@ -24,7 +27,7 @@ const Trainings = () => {
     deadline: ''
   })
 
-  const userTypes = ['교원', '직원', '공무직', '기간제교사', '교직원']
+  const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
 
   useEffect(() => {
     fetchTrainings()
@@ -46,6 +49,7 @@ const Trainings = () => {
     setEditingTraining(null)
     setFormData({
       name: '',
+      description: '',
       registrationBook: '',
       cycle: '',
       targetUsers: [],
@@ -64,6 +68,7 @@ const Trainings = () => {
     setEditingTraining(training)
     setFormData({
       name: training.name,
+      description: training.description || '',
       registrationBook: training.registrationBook || '',
       cycle: training.cycle || '',
       targetUsers: training.targetUsers || [],
@@ -114,17 +119,63 @@ const Trainings = () => {
     }
   }
 
+  const handleExportToExcel = () => {
+    if (trainings.length === 0) {
+      alert('다운로드할 연수 목록이 없습니다.')
+      return
+    }
+
+    // 엑셀 데이터 준비
+    const excelData = trainings.map((training, index) => ({
+      '순번': index + 1,
+      '연수명': training.name || '-',
+      '연수 설명': training.description || '-',
+      '대상자': training.targetUsers?.join(', ') || '-',
+      '담당자': training.manager || '-',
+      '업무부서': training.department || '-',
+      '이수 기한': training.deadline ? new Date(training.deadline).toLocaleDateString('ko-KR') : '-',
+      '이수 주기': training.cycle || '-',
+      '이수시간': training.hours || '-',
+      '실시일': training.implementationDate || '-',
+      '참여자 수': training.participants?.length || 0,
+      '등록일': training.createdAt ? new Date(training.createdAt).toLocaleDateString('ko-KR') : '-',
+    }))
+
+    // 워크북 생성
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(excelData)
+    XLSX.utils.book_append_sheet(wb, ws, '연수 목록')
+
+    // 파일명 생성
+    const fileName = `연수_목록_${new Date().toISOString().split('T')[0]}.xlsx`
+
+    // 엑셀 파일 다운로드
+    XLSX.writeFile(wb, fileName)
+  }
+
   return (
     <Layout>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">연수 관리</h1>
-          <button
-            onClick={handleCreate}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-          >
-            연수 등록
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportToExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
+              disabled={trainings.length === 0}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              연수 목록 다운로드
+            </button>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              연수 등록
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -158,7 +209,12 @@ const Trainings = () => {
                 {trainings.map((training) => (
                   <tr key={training.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {training.name}
+                      <button
+                        onClick={() => navigate(`/dashboard/trainings/${training.id}`)}
+                        className="text-indigo-600 hover:text-indigo-900 hover:underline"
+                      >
+                        {training.name}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {training.targetUsers?.join(', ') || '-'}
@@ -180,6 +236,21 @@ const Trainings = () => {
                         className="text-indigo-600 hover:text-indigo-900"
                       >
                         취합
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm('미이수자에게 알림 메일을 발송하시겠습니까?')) return
+                          try {
+                            const result = await sendIncompleteReminders(training.id)
+                            alert(result.message)
+                          } catch (error: any) {
+                            alert(error.response?.data?.error || '알림 발송 중 오류가 발생했습니다.')
+                          }
+                        }}
+                        className="text-yellow-600 hover:text-yellow-900"
+                        title="미이수자 알림 발송"
+                      >
+                        📧 알림
                       </button>
                       <button
                         onClick={() => handleEdit(training)}
@@ -215,7 +286,17 @@ const Trainings = () => {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">연수 설명</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="연수에 대한 간단한 설명을 입력하세요 (3줄 정도)"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -225,7 +306,7 @@ const Trainings = () => {
                       type="text"
                       value={formData.cycle}
                       onChange={(e) => setFormData({ ...formData, cycle: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -234,7 +315,7 @@ const Trainings = () => {
                       type="text"
                       value={formData.hours}
                       onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -261,7 +342,7 @@ const Trainings = () => {
                       type="text"
                       value={formData.implementationDate}
                       onChange={(e) => setFormData({ ...formData, implementationDate: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -270,7 +351,7 @@ const Trainings = () => {
                       type="date"
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -281,7 +362,7 @@ const Trainings = () => {
                       type="text"
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -291,7 +372,7 @@ const Trainings = () => {
                       required
                       value={formData.manager}
                       onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -302,7 +383,7 @@ const Trainings = () => {
                     value={formData.method}
                     onChange={(e) => setFormData({ ...formData, method: e.target.value })}
                     placeholder="예: 온라인 강의, 집합 연수 등"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -312,16 +393,7 @@ const Trainings = () => {
                     value={formData.methodLink}
                     onChange={(e) => setFormData({ ...formData, methodLink: e.target.value })}
                     placeholder="https://example.com"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">연수등록부</label>
-                  <input
-                    type="text"
-                    value={formData.registrationBook}
-                    onChange={(e) => setFormData({ ...formData, registrationBook: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                 </div>
                 <div className="flex justify-end space-x-2 pt-4">

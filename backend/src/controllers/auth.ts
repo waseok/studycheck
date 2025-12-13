@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { OAuth2Client } from 'google-auth-library'
 import prisma from '../utils/prisma'
 
 const INITIAL_PASSWORD = process.env.SCHOOL_PASSWORD || '1234'
@@ -169,27 +170,56 @@ export const loginPin = async (req: Request, res: Response) => {
 
 // 기존 login 함수는 호환성을 위해 유지 (관리자용)
 export const login = async (req: Request, res: Response) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:171',message:'관리자 로그인 함수 진입',data:{hasEmail:!!req.body?.email,email:req.body?.email,hasPassword:!!req.body?.password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   try {
     const { email, password } = req.body as { email?: string; password?: string }
+    
+    // 이메일이 빈 문자열이면 undefined로 처리
+    const normalizedEmail = email && email.trim() ? email.trim() : undefined
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:175',message:'요청 본문 파싱 완료',data:{email:normalizedEmail||'없음',emailType:typeof normalizedEmail,passwordLength:password?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     if (!password) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:176',message:'비밀번호 없음 에러',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return res.status(400).json({ error: '비밀번호를 입력해주세요.' })
     }
 
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin-password'
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:181',message:'비밀번호 검증 전',data:{passwordMatch:password===adminPassword,adminPasswordLength:adminPassword.length,receivedPasswordLength:password.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     if (password !== adminPassword) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:182',message:'비밀번호 불일치 에러',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return res.status(401).json({ error: '잘못된 비밀번호입니다.' })
     }
 
     // 관리자 비번이면 SUPER_ADMIN
     const role: AppRole = 'SUPER_ADMIN'
 
+    const tokenPayload = { isAdmin: true, role, email: normalizedEmail || null, loginTime: Date.now() }
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:189',message:'토큰 페이로드 생성',data:{hasUserId:false,hasEmail:!!tokenPayload.email,email:tokenPayload.email,isAdmin:tokenPayload.isAdmin,role:tokenPayload.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     const token = jwt.sign(
-      { isAdmin: true, role, email: email || null, loginTime: Date.now() },
+      tokenPayload,
       JWT_SECRET,
       { expiresIn: '24h' }
     )
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:194',message:'관리자 로그인 성공 응답',data:{hasToken:!!token,tokenLength:token.length,role,isAdmin:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     res.json({
       success: true,
@@ -199,8 +229,159 @@ export const login = async (req: Request, res: Response) => {
       message: '관리자로 로그인되었습니다.'
     })
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:202',message:'관리자 로그인 에러',data:{error:error instanceof Error?error.message:'알 수 없는 오류'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     console.error('Login error:', error)
     res.status(500).json({ error: '서버 오류가 발생했습니다.' })
+  }
+}
+
+// 회원가입 (일반 사용자용)
+export const register = async (req: Request, res: Response) => {
+  try {
+    const { name, email, userType, position, grade, class: userClass } = req.body as { 
+      name?: string
+      email?: string
+      userType?: string
+      position?: string
+      grade?: string
+      class?: string
+    }
+
+    if (!name || !email) {
+      return res.status(400).json({ error: '이름과 이메일은 필수입니다.' })
+    }
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' })
+    }
+
+    // 이메일 중복 확인
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    })
+
+    if (existingUser) {
+      return res.status(400).json({ error: '이미 등록된 이메일입니다.' })
+    }
+
+    // userType 검증
+    const validUserTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
+    const finalUserType = userType && validUserTypes.includes(userType) ? userType : '교직원'
+
+    // 회원가입 시 일반 사용자(USER)로 자동 등록
+    const user = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        userType: finalUserType,
+        position: position?.trim() || null,
+        grade: grade?.trim() || null,
+        class: userClass?.trim() || null,
+        role: 'USER',
+        isAdmin: false,
+        mustSetPin: true, // PIN 설정 필요
+      }
+    })
+
+    res.json({
+      success: true,
+      message: '회원가입이 완료되었습니다. 초기 비밀번호로 로그인하여 PIN을 설정해주세요.',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        userType: user.userType
+      }
+    })
+  } catch (error: any) {
+    console.error('Register error:', error)
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: '이미 등록된 이메일입니다.' })
+    }
+    res.status(500).json({ error: '회원가입 중 오류가 발생했습니다.' })
+  }
+}
+
+// Google 로그인
+export const googleLogin = async (req: Request, res: Response) => {
+  try {
+    const { token: accessToken } = req.body as { token?: string }
+
+    if (!accessToken) {
+      return res.status(400).json({ error: 'Google 토큰이 필요합니다.' })
+    }
+
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+    if (!GOOGLE_CLIENT_ID) {
+      console.error('GOOGLE_CLIENT_ID가 설정되지 않았습니다.')
+      return res.status(500).json({ error: 'Google 로그인이 설정되지 않았습니다.' })
+    }
+
+    // Google 사용자 정보 가져오기 (access_token 사용)
+    const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`)
+    
+    if (!response.ok) {
+      console.error('Google API 오류:', response.status, response.statusText)
+      return res.status(401).json({ error: 'Google 사용자 정보를 가져올 수 없습니다.' })
+    }
+
+    const userInfo = await response.json()
+    const { email, name, picture } = userInfo
+
+    if (!email) {
+      return res.status(400).json({ error: '이메일 정보를 가져올 수 없습니다.' })
+    }
+
+    // DB에서 사용자 찾기 또는 생성
+    let user = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    // 사용자가 없으면 자동으로 생성 (일반 사용자로)
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          userType: '교원', // 기본값
+          role: 'USER',
+          isAdmin: false,
+          mustSetPin: false, // Google 로그인은 PIN 불필요
+        }
+      })
+    }
+
+    // 역할 결정
+    const role: AppRole = (user.role as AppRole) || (user.isAdmin ? 'SUPER_ADMIN' : 'USER')
+
+    // JWT 토큰 발급
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role, isAdmin: user.isAdmin, mustSetPin: false, loginTime: Date.now() },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    )
+
+    res.json({
+      success: true,
+      token,
+      role,
+      isAdmin: user.isAdmin,
+      mustSetPin: false,
+      message: 'Google 로그인에 성공했습니다.'
+    })
+  } catch (error: any) {
+    console.error('Google login error:', error)
+    
+    // Google 인증 실패
+    if (error.message?.includes('Invalid token')) {
+      return res.status(401).json({ error: '유효하지 않은 Google 토큰입니다.' })
+    }
+    
+    res.status(500).json({ error: 'Google 로그인 중 오류가 발생했습니다.' })
   }
 }
 

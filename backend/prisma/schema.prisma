@@ -15,6 +15,9 @@ model User {
   name      String
   email     String   @unique
   userType  String   @map("user_type") // 교원, 직원, 공무직, 기간제교사 등
+  position  String?  // 직위 (선택사항)
+  grade     String?  // 학년 (선택사항)
+  class     String?  // 반 (선택사항)
   isAdmin   Boolean  @default(false) @map("is_admin")
   role      String?  @default("USER") // SUPER_ADMIN, TRAINING_ADMIN, USER
   pinHash   String?  @map("pin_hash") // 4자리 PIN 해시
@@ -32,6 +35,7 @@ model User {
 model Training {
   id               String   @id @default(uuid())
   name             String   // 연수명
+  description      String?  // 연수 설명 (3줄 정도)
   registrationBook String?  @map("registration_book") // 연수등록부
   cycle            String?  // 이수 주기 (1년, 학기, 3년 등)
   targetUsers      String[] @map("target_users") // 대상자 범위 (JSON 배열)

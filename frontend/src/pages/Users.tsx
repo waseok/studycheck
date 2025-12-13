@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getUsers, createUser, updateUser, deleteUser, resetPin, bulkCreateUsers } from '../api/users'
+import { cleanupDuplicates } from '../api/participants'
+import { isAdmin } from '../api/auth'
 import { User } from '../types'
 
 const Users = () => {
@@ -16,10 +18,13 @@ const Users = () => {
     name: '',
     email: '',
     userType: '교원',
+    position: '',
+    grade: '',
+    class: '',
     role: 'USER' as 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER',
   })
 
-  const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원']
+  const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
   const roles = [
     { value: 'SUPER_ADMIN', label: '최고 관리자' },
     { value: 'TRAINING_ADMIN', label: '연수 관리자' },
@@ -50,7 +55,7 @@ const Users = () => {
 
   const handleCreate = () => {
     setEditingUser(null)
-    setFormData({ name: '', email: '', userType: '교원', role: 'USER' })
+    setFormData({ name: '', email: '', userType: '교원', position: '', grade: '', class: '', role: 'USER' })
     setShowModal(true)
   }
 
@@ -60,6 +65,9 @@ const Users = () => {
       name: user.name,
       email: user.email,
       userType: user.userType,
+      position: user.position || '',
+      grade: user.grade || '',
+      class: user.class || '',
       role: deriveRole(user),
     })
     setShowModal(true)
@@ -90,6 +98,25 @@ const Users = () => {
     }
   }
 
+  const handleCleanupDuplicates = async () => {
+    if (!confirm('중복된 연수 참여자 레코드를 정리하시겠습니까?\n\n이 작업은 같은 연수에 대한 중복 참여자 레코드를 삭제합니다. 이수번호가 있는 레코드는 보존됩니다.')) return
+
+    try {
+      setLoading(true)
+      const result = await cleanupDuplicates()
+      if (result.success) {
+        alert(result.message || `중복 레코드 정리가 완료되었습니다.\n삭제된 레코드: ${result.deletedCount || 0}개\n중복 그룹: ${result.duplicateGroups || 0}개`)
+      } else {
+        alert(result.message || '중복 레코드 정리 중 오류가 발생했습니다.')
+      }
+    } catch (error: any) {
+      console.error('중복 레코드 정리 오류:', error)
+      alert(error.response?.data?.error || '중복 레코드 정리 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -98,6 +125,9 @@ const Users = () => {
           name: formData.name,
           email: formData.email,
           userType: formData.userType,
+          position: formData.position || undefined,
+          grade: formData.grade || undefined,
+          class: formData.class || undefined,
           role: formData.role,
         })
       } else {
@@ -105,6 +135,9 @@ const Users = () => {
           name: formData.name,
           email: formData.email,
           userType: formData.userType,
+          position: formData.position || undefined,
+          grade: formData.grade || undefined,
+          class: formData.class || undefined,
           role: formData.role,
         })
       }
@@ -220,8 +253,18 @@ const Users = () => {
     <Layout>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">교직원 관리</h1>
+          <h1 className="text-4xl font-bold text-blue-800 mb-6">👥 교직원 관리</h1>
           <div className="flex gap-2">
+            {isAdmin() && (
+              <button
+                onClick={handleCleanupDuplicates}
+                disabled={loading}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                title="중복된 연수 참여자 레코드 정리"
+              >
+                🔧 중복 레코드 정리
+              </button>
+            )}
             <button
               onClick={downloadTemplate}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
@@ -246,13 +289,16 @@ const Users = () => {
         {loading ? (
           <div className="text-center py-8">로딩 중...</div>
         ) : (
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="bg-white shadow-xl rounded-2xl overflow-hidden border-4 border-blue-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직위</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">학년</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">반</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
@@ -264,6 +310,9 @@ const Users = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.userType}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.position || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.grade || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.class || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{
                       deriveRole(user) === 'SUPER_ADMIN' ? '최고 관리자' : deriveRole(user) === 'TRAINING_ADMIN' ? '연수 관리자' : '일반 사용자'
                     }</td>
@@ -282,28 +331,60 @@ const Users = () => {
 
         {showModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border-4 border-blue-300">
               <h2 className="text-xl font-bold mb-4">{editingUser ? '교직원 수정' : '교직원 등록'}</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">이름</label>
-                  <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                  <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">이메일</label>
-                  <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                  <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">유형</label>
-                  <select value={formData.userType} onChange={(e) => setFormData({ ...formData, userType: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                  <select value={formData.userType} onChange={(e) => setFormData({ ...formData, userType: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     {userTypes.map((type) => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                 </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">직위 (선택)</label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                      placeholder="예: 교사, 주임교사 등"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">학년 (선택)</label>
+                    <input
+                      type="text"
+                      value={formData.grade}
+                      onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                      placeholder="예: 1, 2, 3"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">반 (선택)</label>
+                    <input
+                      type="text"
+                      value={formData.class}
+                      onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                      placeholder="예: 1, 2, 3"
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">권한</label>
-                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     {roles.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
@@ -313,8 +394,8 @@ const Users = () => {
                     <br/>- 일반 사용자: 내 연수 관리</p>
                 </div>
                 <div className="flex justify-end space-x-2 pt-4">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">취소</button>
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">저장</button>
+                  <button type="button" onClick={() => setShowModal(false)} className="px-5 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 font-semibold transition-all">취소</button>
+                  <button type="submit" className="px-5 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 font-semibold shadow-lg transition-all transform hover:scale-105 active:scale-95">저장</button>
                 </div>
               </form>
             </div>
@@ -324,7 +405,7 @@ const Users = () => {
         {/* 엑셀 일괄 등록 모달 */}
         {showBulkModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border-4 border-blue-300">
               <h2 className="text-xl font-bold mb-4">엑셀 일괄 등록</h2>
               
               {uploadResult ? (
@@ -357,7 +438,7 @@ const Users = () => {
                     <p className="text-xs text-gray-500">
                       • 파일 형식: .xlsx, .xls<br/>
                       • 필수 열: 이름, 이메일, 유형, 권한<br/>
-                      • 유형: 교원, 직원, 공무직, 기간제교사, 교육공무직, 교직원<br/>
+                      • 유형: 교원, 직원, 공무직, 기간제교사, 교육공무직, 교직원, 교육활동 참여자<br/>
                       • 권한: 최고 관리자, 연수 관리자, 일반 사용자
                     </p>
                   </div>

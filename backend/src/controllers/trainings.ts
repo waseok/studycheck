@@ -31,6 +31,7 @@ export const createTraining = async (req: Request, res: Response) => {
   try {
     const {
       name,
+      description,
       registrationBook,
       cycle,
       targetUsers,
@@ -55,6 +56,7 @@ export const createTraining = async (req: Request, res: Response) => {
     const training = await prisma.training.create({
       data: {
         name,
+        description: description?.trim() || null,
         registrationBook,
         cycle,
         targetUsers: Array.isArray(targetUsers) ? targetUsers : [],
@@ -120,6 +122,7 @@ export const updateTraining = async (req: Request, res: Response) => {
     const { id } = req.params
     const {
       name,
+      description,
       registrationBook,
       cycle,
       targetUsers,
@@ -142,6 +145,7 @@ export const updateTraining = async (req: Request, res: Response) => {
       where: { id },
       data: {
         ...(name && { name }),
+        ...(description !== undefined && { description: description?.trim() || null }),
         ...(registrationBook !== undefined && { registrationBook }),
         ...(cycle !== undefined && { cycle }),
         ...(targetUsers !== undefined && { targetUsers: Array.isArray(targetUsers) ? targetUsers : [] }),
@@ -157,30 +161,69 @@ export const updateTraining = async (req: Request, res: Response) => {
 
     // targetUsers가 변경된 경우 참여자 재매칭
     if (targetUsers !== undefined && Array.isArray(targetUsers)) {
-      // 기존 참여자 삭제
-      await prisma.trainingParticipant.deleteMany({
-        where: { trainingId: id }
-      })
+      // 트랜잭션으로 안전하게 처리
+      await prisma.$transaction(async (tx) => {
+        // 기존 참여자 조회 (이수번호가 있는 것 보존)
+        const existingParticipants = await tx.trainingParticipant.findMany({
+          where: { trainingId: id }
+        })
 
-      // 새로운 대상자 매칭
-      if (targetUsers.length > 0) {
-        const matchingUsers = await prisma.user.findMany({
-          where: {
-            userType: {
-              in: targetUsers
+        // 기존 참여자 정보를 맵으로 저장 (이수번호 보존용)
+        const existingMap = new Map(
+          existingParticipants.map(p => [p.userId, p])
+        )
+
+        // 새로운 대상자 매칭
+        if (targetUsers.length > 0) {
+          const matchingUsers = await tx.user.findMany({
+            where: {
+              userType: {
+                in: targetUsers
+              }
+            }
+          })
+
+          // 기존 참여자 중 새로운 대상자에 포함되지 않는 사용자 삭제
+          const matchingUserIds = new Set(matchingUsers.map(u => u.id))
+          const toDelete = existingParticipants.filter(
+            p => !matchingUserIds.has(p.userId)
+          )
+          
+          if (toDelete.length > 0) {
+            await tx.trainingParticipant.deleteMany({
+              where: {
+                id: {
+                  in: toDelete.map(p => p.id)
+                }
+              }
+            })
+          }
+
+          // 새로운 참여자 생성 또는 업데이트 (기존 이수번호 보존)
+          for (const user of matchingUsers) {
+            const existing = existingMap.get(user.id)
+            
+            if (existing) {
+              // 이미 존재하는 경우 업데이트하지 않음 (이수번호 보존)
+              continue
+            } else {
+              // 새로 추가되는 경우만 생성
+              await tx.trainingParticipant.create({
+                data: {
+                  trainingId: id,
+                  userId: user.id,
+                  status: 'pending'
+                }
+              })
             }
           }
-        })
-
-        await prisma.trainingParticipant.createMany({
-          data: matchingUsers.map(user => ({
-            trainingId: id,
-            userId: user.id,
-            status: 'pending'
-          })),
-          skipDuplicates: true
-        })
-      }
+        } else {
+          // targetUsers가 빈 배열이면 모든 참여자 삭제
+          await tx.trainingParticipant.deleteMany({
+            where: { trainingId: id }
+          })
+        }
+      })
     }
 
     // 업데이트된 연수 정보 반환

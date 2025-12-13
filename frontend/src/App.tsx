@@ -7,6 +7,7 @@ import Trainings from './pages/Trainings'
 import TrainingCollection from './pages/TrainingCollection'
 import MyTrainings from './pages/MyTrainings'
 import Stats from './pages/Stats'
+import Profile from './pages/Profile'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -64,6 +65,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
               <MyTrainings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/profile"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <Profile />
             </ProtectedRoute>
           }
         />

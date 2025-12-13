@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { sendManualReminders } from '../services/reminder'
-import { sendEmail } from '../services/email'
+import { sendEmail, getReminderEmailTemplate } from '../services/email'
 import { authMiddleware, adminMiddleware } from '../middleware/auth'
+import prisma from '../utils/prisma'
 
 const router = Router()
 
@@ -13,6 +14,81 @@ router.post('/send', authMiddleware, adminMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Manual reminder send error:', error)
     res.status(500).json({ error: '리마인더 발송 중 오류가 발생했습니다.' })
+  }
+})
+
+// 특정 연수의 미이수자에게 알림 발송 (관리자만)
+router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { trainingId } = req.params
+    
+    const training = await prisma.training.findUnique({
+      where: { id: trainingId },
+      include: {
+        participants: {
+          where: {
+            OR: [
+              { status: 'pending' },
+              { completionNumber: null },
+              { completionNumber: '' }
+            ]
+          },
+          include: {
+            user: true
+          }
+        }
+      }
+    })
+
+    if (!training) {
+      return res.status(404).json({ error: '연수를 찾을 수 없습니다.' })
+    }
+
+    let sentCount = 0
+    let failedCount = 0
+
+    for (const participant of training.participants) {
+      try {
+        const html = getReminderEmailTemplate(
+          participant.user.name,
+          training.name,
+          'missing',
+          training.deadline
+        )
+
+        const subject = `[의무연수 안내] ${training.name} - 이수번호 미입력 알림`
+        const success = await sendEmail(participant.user.email, subject, html)
+
+        if (success) {
+          // 리마인더 로그 저장
+          await prisma.trainingReminder.create({
+            data: {
+              trainingId: training.id,
+              userId: participant.userId,
+              reminderType: 'missing',
+              status: 'sent'
+            }
+          })
+          sentCount++
+        } else {
+          failedCount++
+        }
+      } catch (error) {
+        console.error(`이메일 발송 실패: ${participant.user.email}`, error)
+        failedCount++
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `미이수자 ${sentCount}명에게 알림이 발송되었습니다.`,
+      sentCount,
+      failedCount,
+      total: training.participants.length
+    })
+  } catch (error: any) {
+    console.error('미이수자 알림 발송 오류:', error)
+    res.status(500).json({ error: '알림 발송 중 오류가 발생했습니다.' })
   }
 })
 

@@ -23,6 +23,101 @@ export const getUsers = async (req: Request, res: Response) => {
   }
 }
 
+// 현재 로그인한 사용자 정보 조회 (본인)
+export const getMyProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+    }
+
+    res.json(user)
+  } catch (error) {
+    console.error('Get my profile error:', error)
+    res.status(500).json({ error: '내 정보 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+// 현재 로그인한 사용자 정보 수정 (본인)
+export const updateMyProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' })
+    }
+
+    const { name, email, userType, position, grade, class: userClass } = req.body as {
+      name?: string
+      email?: string
+      userType?: string
+      position?: string
+      grade?: string
+      class?: string
+    }
+
+    // 사용자 존재 확인
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+
+    if (!existingUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+    }
+
+    // 이메일 변경 시 중복 확인
+    if (email && email !== existingUser.email) {
+      const emailExists = await prisma.user.findFirst({
+        where: {
+          email: email.trim().toLowerCase(),
+          NOT: { id: userId }
+        }
+      })
+
+      if (emailExists) {
+        return res.status(400).json({ error: '이미 등록된 이메일입니다.' })
+      }
+    }
+
+    // 업데이트할 데이터 준비 (일반 사용자는 role과 isAdmin 수정 불가)
+    const updateData: any = {}
+    if (name !== undefined) updateData.name = name.trim()
+    if (email !== undefined) updateData.email = email.trim().toLowerCase()
+    if (userType !== undefined) {
+      const validUserTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
+      if (validUserTypes.includes(userType)) {
+        updateData.userType = userType
+      }
+    }
+    if (position !== undefined) updateData.position = position?.trim() || null
+    if (grade !== undefined) updateData.grade = grade?.trim() || null
+    if (userClass !== undefined) updateData.class = userClass?.trim() || null
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: updateData
+    })
+
+    res.json({
+      success: true,
+      message: '내 정보가 수정되었습니다.',
+      user
+    })
+  } catch (error: any) {
+    console.error('Update my profile error:', error)
+    res.status(500).json({ error: '내 정보 수정 중 오류가 발생했습니다.' })
+  }
+}
+
 export const createUser = async (req: Request, res: Response) => {
   try {
     console.log('📥 Create user request received:', {
@@ -32,7 +127,7 @@ export const createUser = async (req: Request, res: Response) => {
       path: req.path,
     })
     
-    const { name, email, userType, role } = req.body as { name: string; email: string; userType?: string; role?: AppRole }
+    const { name, email, userType, position, grade, class: userClass, role } = req.body as { name: string; email: string; userType?: string; position?: string; grade?: string; class?: string; role?: AppRole }
 
     console.log('➕ Create user parsed:', { name, email, userType, role })
 
@@ -73,6 +168,9 @@ export const createUser = async (req: Request, res: Response) => {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       userType: finalUserType,
+      position: position?.trim() || null,
+      grade: grade?.trim() || null,
+      class: userClass?.trim() || null,
       isAdmin: roleData?.isAdmin === true ? true : false,
       role: finalRole,
       mustSetPin: true, // 새 사용자는 PIN 설정 필요
@@ -134,7 +232,7 @@ export const createUser = async (req: Request, res: Response) => {
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, email, userType, role } = req.body as { name?: string; email?: string; userType?: string; role?: AppRole }
+    const { name, email, userType, position, grade, class: userClass, role } = req.body as { name?: string; email?: string; userType?: string; position?: string; grade?: string; class?: string; role?: AppRole }
 
     console.log('📝 Update user request:', { id, name, email, userType, role })
 
@@ -173,6 +271,9 @@ export const updateUser = async (req: Request, res: Response) => {
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
     if (userType !== undefined) updateData.userType = userType
+    if (position !== undefined) updateData.position = position?.trim() || null
+    if (grade !== undefined) updateData.grade = grade?.trim() || null
+    if (userClass !== undefined) updateData.class = userClass?.trim() || null
     if (role !== undefined) {
       updateData.role = role
       updateData.isAdmin = roleData.isAdmin ?? false

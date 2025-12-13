@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import { getTrainingStats, getIncompleteList } from '../api/stats'
 import { getTrainings } from '../api/trainings'
 import { Training } from '../types'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 
 const Stats = () => {
   const [trainings, setTrainings] = useState<Training[]>([])
@@ -55,12 +55,27 @@ const Stats = () => {
     }
   }, [selectedTraining])
 
-  const chartData = trainings.map(training => ({
-    name: training.name.length > 10 ? training.name.substring(0, 10) + '...' : training.name,
-    전체: training.participants?.length || 0,
-    완료: training.participants?.filter((p: any) => p.status === 'completed').length || 0,
-    미완료: (training.participants?.length || 0) - (training.participants?.filter((p: any) => p.status === 'completed').length || 0)
-  }))
+  // 각 연수별 완료율 데이터 (원그래프용)
+  const trainingPieData = trainings.map(training => {
+    const total = training.participants?.length || 0
+    const completed = training.participants?.filter((p: any) => p.status === 'completed').length || 0
+    const pending = total - completed
+    const completionRate = total > 0 ? (completed / total) * 100 : 0
+    
+    return {
+      id: training.id,
+      name: training.name.length > 15 ? training.name.substring(0, 15) + '...' : training.name,
+      fullName: training.name,
+      total,
+      completed,
+      pending,
+      completionRate,
+      pieData: [
+        { name: '완료', value: completed },
+        { name: '미완료', value: pending }
+      ]
+    }
+  })
 
   const pieData = trainingStats ? [
     { name: '완료', value: trainingStats.completed },
@@ -78,25 +93,63 @@ const Stats = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">통계</h1>
+        <h1 className="text-4xl font-bold text-blue-800 mb-6">📊 통계</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">연수별 이수 현황</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="완료" fill="#00C49F" />
-                <Bar dataKey="미완료" fill="#FF8042" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-300">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">연수별 이수 현황</h2>
+            <div className="space-y-6 max-h-[500px] overflow-y-auto">
+              {trainingPieData.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">등록된 연수가 없습니다.</div>
+              ) : (
+                trainingPieData.map((training) => (
+                  <div key={training.id} className="border-b border-gray-200 pb-4 last:border-b-0">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">{training.fullName}</h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0">
+                        <ResponsiveContainer width={120} height={120}>
+                          <PieChart>
+                            <Pie
+                              data={training.pieData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                              outerRadius={50}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {training.pieData.map((_entry, index) => (
+                                <Cell key={`cell-${index}`} fill={index === 0 ? '#00C49F' : '#FF8042'} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex-1">
+                        <div className="space-y-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                            <span>완료: {training.completed}명</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                            <span>미완료: {training.pending}명</span>
+                          </div>
+                          <div className="pt-2">
+                            <span className="font-semibold text-blue-600">이수율: {training.completionRate.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-300">
             <h2 className="text-xl font-semibold mb-4">연수 선택</h2>
             <select
               value={selectedTraining || ''}
@@ -161,7 +214,7 @@ const Stats = () => {
           </div>
         </div>
 
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-300">
           <h2 className="text-xl font-semibold mb-4">미이수자 목록</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">

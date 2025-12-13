@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { isAuthenticated, isAdmin, hasRole } from '../api/auth'
+import { isAuthenticated, isAdmin, hasRole, getRole } from '../api/auth'
 import type { AppRole } from '../types'
 
 interface ProtectedRouteProps {
@@ -11,19 +11,39 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles }: ProtectedRouteProps) => {
   const authenticated = isAuthenticated()
+  const admin = isAdmin()
+  const role = getRole()
+
+  // 디버깅: ProtectedRoute 체크 정보
+  if (import.meta.env.DEV) {
+    console.log('🔐 ProtectedRoute 체크:', {
+      path: window.location.pathname,
+      authenticated,
+      admin,
+      role,
+      requireAdmin,
+      allowedRoles,
+      isAdminValue: localStorage.getItem('isAdmin'),
+      roleValue: localStorage.getItem('role'),
+    })
+  }
 
   if (!authenticated) {
+    console.warn('❌ 인증되지 않음, 로그인 페이지로 이동')
     return <Navigate to="/login" replace />
   }
 
   if (requireAdmin) {
-    if (!isAdmin()) {
+    if (!admin) {
+      console.warn('❌ 관리자 권한 없음, 대시보드로 이동')
       return <Navigate to="/dashboard" replace />
     }
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
-    if (!hasRole(allowedRoles)) {
+    const hasAccess = hasRole(allowedRoles)
+    if (!hasAccess) {
+      console.warn('❌ 권한 없음:', { role, allowedRoles, hasAccess })
       // 접근 불가 시 대시보드로
       return <Navigate to="/dashboard" replace />
     }

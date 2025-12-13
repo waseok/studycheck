@@ -21,3 +21,8 @@ export const updateCompletionNumber = async (
   return response.data
 }
 
+export const cleanupDuplicates = async (): Promise<{ success: boolean; message: string; deletedCount?: number; duplicateGroups?: number }> => {
+  const response = await apiClient.post<{ success: boolean; message: string; deletedCount?: number; duplicateGroups?: number }>('/participants/cleanup-duplicates')
+  return response.data
+}
+

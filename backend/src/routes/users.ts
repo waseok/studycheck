@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { getUsers, createUser, updateUser, deleteUser, resetUserPin, bulkCreateUsers, downloadTemplate } from '../controllers/users'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPin, bulkCreateUsers, downloadTemplate, getMyProfile, updateMyProfile } from '../controllers/users'
 import { authMiddleware, adminMiddleware } from '../middleware/auth'
 
 const router = Router()
@@ -30,6 +30,8 @@ const upload = multer({
 })
 
 router.get('/', authMiddleware, adminMiddleware, getUsers)
+router.get('/me', authMiddleware, getMyProfile) // 현재 사용자 정보 조회
+router.put('/me', authMiddleware, updateMyProfile) // 현재 사용자 정보 수정
 router.get('/template', authMiddleware, adminMiddleware, downloadTemplate)
 router.post('/', authMiddleware, adminMiddleware, createUser)
 router.post('/bulk', authMiddleware, adminMiddleware, upload.single('file'), bulkCreateUsers)

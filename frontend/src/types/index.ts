@@ -3,6 +3,10 @@ export interface User {
   name: string
   email: string
   userType: string
+  position?: string // 직위
+  grade?: string // 학년
+  class?: string // 반
+  role?: AppRole
   isAdmin: boolean
   createdAt: string
   updatedAt: string

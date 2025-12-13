@@ -18,6 +18,12 @@ apiClient.interceptors.request.use(
     // localStorage에서 토큰 가져오기
     const token = localStorage.getItem('token')
     
+    // #region agent log
+    if (config.url?.includes('/auth/') || config.url?.includes('/users') || config.url?.includes('/trainings') || config.url?.includes('/stats')) {
+      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:16',message:'API 요청 인터셉터',data:{url:config.url,method:config.method,hasToken:!!token,tokenLength:token?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    }
+    // #endregion
+    
     // 헤더 객체가 없으면 생성
     if (!config.headers) {
       config.headers = {} as any
@@ -34,6 +40,12 @@ apiClient.interceptors.request.use(
       if ((config.headers as any).common) {
         (config.headers.common as any)['Authorization'] = `Bearer ${token}`
       }
+      
+      // #region agent log
+      if (config.url?.includes('/auth/') || config.url?.includes('/users') || config.url?.includes('/trainings') || config.url?.includes('/stats')) {
+        fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:31',message:'Authorization 헤더 설정 완료',data:{url:config.url,hasAuthHeader:!!headers.Authorization},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      }
+      // #endregion
     }
     
     return config
