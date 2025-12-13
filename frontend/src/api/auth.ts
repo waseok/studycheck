@@ -58,7 +58,7 @@ export const login = async (email: string, password: string): Promise<AuthRespon
   if (response.data.success && response.data.token) {
     localStorage.setItem('token', response.data.token)
     // isAdmin이 명시적으로 true/false인지 확인하고 저장
-    const isAdminValue = response.data.isAdmin === true || response.data.isAdmin === 'true'
+    const isAdminValue = response.data.isAdmin === true || String(response.data.isAdmin) === 'true'
     localStorage.setItem('isAdmin', String(isAdminValue))
     // role이 있으면 사용하고, 없으면 isAdmin에 따라 결정
     const role = response.data.role || (isAdminValue ? 'SUPER_ADMIN' : 'USER')

@@ -4,7 +4,7 @@ import { getMyProfile, updateMyProfile } from '../api/users'
 import { User } from '../types'
 
 const Profile = () => {
-  const [user, setUser] = useState<User | null>(null)
+  const [, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({

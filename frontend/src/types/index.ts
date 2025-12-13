@@ -15,6 +15,7 @@ export interface User {
 export interface Training {
   id: string
   name: string
+  description?: string
   registrationBook?: string
   cycle?: string
   targetUsers: string[]
