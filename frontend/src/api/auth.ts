@@ -139,7 +139,8 @@ export const register = async (userData: {
   class?: string
 }): Promise<{ success: boolean; message: string }> => {
   // 회원가입은 인증이 필요 없으므로 별도 클라이언트 사용
-  const response = await fetch(`${import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : '/api')}/auth/register`, {
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
+  const response = await fetch(`${apiUrl}/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
