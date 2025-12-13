@@ -53,7 +53,7 @@ router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, asy
           participant.user.name,
           training.name,
           'missing',
-          training.deadline
+          training.deadline || undefined
         )
 
         const subject = `[의무연수 안내] ${training.name} - 이수번호 미입력 알림`

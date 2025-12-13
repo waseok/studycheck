@@ -329,7 +329,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Google 사용자 정보를 가져올 수 없습니다.' })
     }
 
-    const userInfo = await response.json()
+    const userInfo = await response.json() as { email?: string; name?: string; picture?: string }
     const { email, name, picture } = userInfo
 
     if (!email) {

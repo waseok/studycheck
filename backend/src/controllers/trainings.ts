@@ -67,7 +67,7 @@ export const createTraining = async (req: Request, res: Response) => {
         method,
         methodLink,
         deadline: deadline ? new Date(deadline) : null
-      }
+      } as any
     })
 
     // 대상자 자동 매칭
@@ -156,7 +156,7 @@ export const updateTraining = async (req: Request, res: Response) => {
         ...(method !== undefined && { method }),
         ...(methodLink !== undefined && { methodLink }),
         ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null })
-      }
+      } as any
     })
 
     // targetUsers가 변경된 경우 참여자 재매칭

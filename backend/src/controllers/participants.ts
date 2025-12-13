@@ -19,7 +19,7 @@ export const getParticipants = async (req: Request, res: Response) => {
             position: true,
             grade: true,
             class: true
-          }
+          } as any
         },
         training: {
           select: {
