@@ -284,7 +284,7 @@ export const register = async (req: Request, res: Response) => {
         role: 'USER',
         isAdmin: false,
         mustSetPin: true, // PIN 설정 필요
-      }
+      } as any
     })
 
     res.json({

@@ -35,19 +35,19 @@ export const getParticipants = async (req: Request, res: Response) => {
     })
 
     // 클라이언트 측에서 이름 순으로 정렬 (orderBy에서 relation 사용 시 문제가 있을 수 있음)
-    participants.sort((a, b) => {
-      const aName = a.user?.name || ''
-      const bName = b.user?.name || ''
+    const sortedParticipants = [...participants].sort((a, b) => {
+      const aName = (a.user as any)?.name || ''
+      const bName = (b.user as any)?.name || ''
       return aName.localeCompare(bName, 'ko')
     })
 
-    console.log(`✅ getParticipants 결과: ${participants.length}명의 참여자 조회됨`, {
+    console.log(`✅ getParticipants 결과: ${sortedParticipants.length}명의 참여자 조회됨`, {
       trainingId,
-      count: participants.length,
-      participantIds: participants.map(p => ({ id: p.id, userId: p.userId, userName: p.user?.name }))
+      count: sortedParticipants.length,
+      participantIds: sortedParticipants.map(p => ({ id: p.id, userId: p.userId, userName: (p.user as any)?.name }))
     })
 
-    res.json(participants)
+    res.json(sortedParticipants)
   } catch (error) {
     console.error('Get participants error:', error)
     res.status(500).json({ error: '참여자 목록 조회 중 오류가 발생했습니다.' })
