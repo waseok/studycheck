@@ -16,7 +16,12 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     // localStorage에서 토큰 가져오기
-    const token = localStorage.getItem('token')
+    let token: string | null = null
+    try {
+      token = localStorage.getItem('token')
+    } catch (error) {
+      console.error('localStorage 접근 오류:', error)
+    }
     
     // #region agent log
     if (config.url?.includes('/auth/') || config.url?.includes('/users') || config.url?.includes('/trainings') || config.url?.includes('/stats')) {

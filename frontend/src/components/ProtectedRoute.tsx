@@ -10,22 +10,31 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles }: ProtectedRouteProps) => {
-  const authenticated = isAuthenticated()
-  const admin = isAdmin()
-  const role = getRole()
+  let authenticated = false
+  let admin = false
+  let role: AppRole = 'USER'
 
-  // 디버깅: ProtectedRoute 체크 정보
-  if (import.meta.env.DEV) {
-    console.log('🔐 ProtectedRoute 체크:', {
-      path: window.location.pathname,
-      authenticated,
-      admin,
-      role,
-      requireAdmin,
-      allowedRoles,
-      isAdminValue: localStorage.getItem('isAdmin'),
-      roleValue: localStorage.getItem('role'),
-    })
+  try {
+    authenticated = isAuthenticated()
+    admin = isAdmin()
+    role = getRole()
+
+    // 디버깅: ProtectedRoute 체크 정보
+    if (import.meta.env.DEV) {
+      console.log('🔐 ProtectedRoute 체크:', {
+        path: window.location.pathname,
+        authenticated,
+        admin,
+        role,
+        requireAdmin,
+        allowedRoles,
+        isAdminValue: localStorage.getItem('isAdmin'),
+        roleValue: localStorage.getItem('role'),
+      })
+    }
+  } catch (error) {
+    console.error('ProtectedRoute 오류:', error)
+    return <Navigate to="/login" replace />
   }
 
   if (!authenticated) {

@@ -78,17 +78,32 @@ export const logout = () => {
 }
 
 export const isAdmin = (): boolean => {
-  return localStorage.getItem('isAdmin') === 'true'
+  try {
+    return localStorage.getItem('isAdmin') === 'true'
+  } catch (error) {
+    console.error('isAdmin 오류:', error)
+    return false
+  }
 }
 
 export const isAuthenticated = (): boolean => {
-  return !!localStorage.getItem('token')
+  try {
+    return !!localStorage.getItem('token')
+  } catch (error) {
+    console.error('isAuthenticated 오류:', error)
+    return false
+  }
 }
 
 export const getRole = (): AppRole => {
-  const role = localStorage.getItem('role') as AppRole | null
-  if (role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN' || role === 'USER') return role
-  return isAdmin() ? 'SUPER_ADMIN' : 'USER'
+  try {
+    const role = localStorage.getItem('role') as AppRole | null
+    if (role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN' || role === 'USER') return role
+    return isAdmin() ? 'SUPER_ADMIN' : 'USER'
+  } catch (error) {
+    console.error('getRole 오류:', error)
+    return 'USER'
+  }
 }
 
 export const hasRole = (allowed: AppRole[]): boolean => {
