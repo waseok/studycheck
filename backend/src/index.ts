@@ -35,8 +35,11 @@ app.use(cors({
     // origin이 없으면 (같은 도메인에서 요청) 허용
     if (!origin) return callback(null, true)
     
+    // Vercel 도메인 패턴 허용 (*.vercel.app, *.vercel.app/*)
+    const isVercelDomain = origin.includes('.vercel.app')
+    
     // 허용된 origin인지 확인
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.includes(origin) || isVercelDomain || process.env.NODE_ENV === 'development') {
       callback(null, true)
     } else {
       console.warn('⚠️ CORS 차단된 Origin:', origin)
@@ -47,6 +50,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }))
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
