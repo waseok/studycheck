@@ -8,11 +8,9 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const Login = () => {
   const [activeTab, setActiveTab] = useState<'initial' | 'pin' | 'admin'>('pin')
   const [email, setEmail] = useState(() => {
-    // 저장된 이메일 불러오기
     return localStorage.getItem('savedEmail') || ''
   })
   const [password, setPassword] = useState(() => {
-    // 저장된 비밀번호 불러오기 (보안을 위해 암호화 고려, 현재는 평문 저장)
     return localStorage.getItem('savedPassword') || ''
   })
   const [adminPassword, setAdminPassword] = useState('')
@@ -44,7 +42,6 @@ const Login = () => {
 
     try {
       const result = await loginInitial(email, password)
-      console.log('🔐 초기 비번 로그인 결과:', result)
       
       if (result.success) {
         const savedToken = localStorage.getItem('token')
@@ -54,7 +51,6 @@ const Login = () => {
           return
         }
         
-        // 아이디/비밀번호 저장 처리
         if (rememberMe) {
           localStorage.setItem('savedEmail', email)
           localStorage.setItem('savedPassword', password)
@@ -65,7 +61,6 @@ const Login = () => {
           localStorage.removeItem('rememberMe')
         }
         
-        // PIN 설정이 필요한 경우 PIN 설정 페이지로 이동
         if (result.mustSetPin) {
           navigate('/set-pin')
         } else {
@@ -75,7 +70,6 @@ const Login = () => {
         setError(result.message || '로그인에 실패했습니다.')
       }
     } catch (err: any) {
-      console.error('❌ 로그인 에러:', err)
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
         setError('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.')
       } else if (err.response?.data?.error) {
@@ -97,7 +91,6 @@ const Login = () => {
 
     try {
       const result = await loginPin(email, pin)
-      console.log('🔐 PIN 로그인 결과:', result)
       
       if (result.success) {
         const savedToken = localStorage.getItem('token')
@@ -107,7 +100,6 @@ const Login = () => {
           return
         }
         
-        // 아이디 저장 처리 (PIN 로그인은 이메일만 저장)
         if (rememberMe) {
           localStorage.setItem('savedEmail', email)
           localStorage.setItem('rememberMe', 'true')
@@ -117,7 +109,6 @@ const Login = () => {
           localStorage.removeItem('rememberMe')
         }
         
-        // PIN 설정이 필요한 경우 PIN 설정 페이지로 이동
         if (result.mustSetPin) {
           navigate('/set-pin')
         } else {
@@ -127,7 +118,6 @@ const Login = () => {
         setError(result.message || '로그인에 실패했습니다.')
       }
     } catch (err: any) {
-      console.error('❌ 로그인 에러:', err)
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
         setError('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.')
       } else if (err.response?.data?.error) {
@@ -147,74 +137,29 @@ const Login = () => {
     setError('')
     setLoading(true)
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:83',message:'관리자 로그인 시작',data:{email:email||'없음',hasAdminPassword:!!adminPassword,adminPasswordLength:adminPassword.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     try {
-      // 관리자 로그인은 이메일이 선택사항이므로, 빈 문자열 대신 undefined 전달
       const result = await login(email && email.trim() ? email.trim() : '', adminPassword)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:90',message:'관리자 로그인 API 응답 수신',data:{success:result.success,hasToken:!!result.token,isAdmin:result.isAdmin,role:result.role,message:result.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      console.log('🔐 관리자 로그인 결과:', result)
       
       if (result.success) {
         const savedToken = localStorage.getItem('token')
-        const savedIsAdmin = localStorage.getItem('isAdmin')
         const savedRole = localStorage.getItem('role')
         
-        // 디버깅: 저장된 값 확인
-        console.log('🔐 관리자 로그인 성공 - 저장된 값:', {
-          hasToken: !!savedToken,
-          isAdmin: savedIsAdmin,
-          role: savedRole,
-          resultIsAdmin: result.isAdmin,
-          resultRole: result.role,
-        })
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:94',message:'토큰 저장 확인',data:{hasSavedToken:!!savedToken,savedIsAdmin,savedRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         if (!savedToken) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:95',message:'토큰 저장 실패',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           setError('토큰 저장에 실패했습니다.')
           setLoading(false)
           return
         }
         
-        // role이 제대로 저장되었는지 확인
         if (!savedRole || savedRole !== 'SUPER_ADMIN') {
-          console.warn('⚠️ role이 제대로 저장되지 않음:', { savedRole, expected: 'SUPER_ADMIN' })
-          // role을 다시 설정
           localStorage.setItem('role', 'SUPER_ADMIN')
           localStorage.setItem('isAdmin', 'true')
         }
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:101',message:'대시보드로 이동 전',data:{token:localStorage.getItem('token')?.substring(0,20)+'...',isAdmin:localStorage.getItem('isAdmin'),role:localStorage.getItem('role')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        
-        console.log('✅ 대시보드로 이동:', {
-          finalIsAdmin: localStorage.getItem('isAdmin'),
-          finalRole: localStorage.getItem('role'),
-        })
-        
-        // 관리자는 바로 대시보드로 이동
         navigate('/dashboard')
       } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:103',message:'로그인 실패',data:{message:result.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         setError(result.message || '로그인에 실패했습니다.')
       }
     } catch (err: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Login.tsx:106',message:'관리자 로그인 예외 발생',data:{error:err?.message,responseError:err?.response?.data?.error,status:err?.response?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      console.error('❌ 관리자 로그인 에러:', err)
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
         setError('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.')
       } else if (err.response?.data?.error) {
@@ -246,7 +191,6 @@ const Login = () => {
         setError(result.message || '회원가입에 실패했습니다.')
       }
     } catch (err: any) {
-      console.error('❌ 회원가입 에러:', err)
       setError(err.message || '회원가입 중 오류가 발생했습니다.')
     } finally {
       setRegisterLoading(false)
