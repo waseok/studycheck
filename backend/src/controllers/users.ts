@@ -373,11 +373,15 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
 
     // 헤더 검증
     const requiredHeaders = ['이름', '이메일', '유형', '권한']
+    const optionalHeaders = ['직위', '학년', '반']
     const headerMapping: { [key: string]: string } = {
       '이름': 'name',
       '이메일': 'email',
       '유형': 'userType',
-      '권한': 'role'
+      '권한': 'role',
+      '직위': 'position',
+      '학년': 'grade',
+      '반': 'class'
     }
 
     // 헤더 인덱스 찾기
@@ -388,6 +392,14 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
         return res.status(400).json({ error: `필수 헤더가 없습니다: ${header}` })
       }
       headerIndices[headerMapping[header]] = index
+    })
+    
+    // 선택적 헤더 인덱스 찾기
+    optionalHeaders.forEach(header => {
+      const index = headers.findIndex(h => h === header.toLowerCase())
+      if (index !== -1) {
+        headerIndices[headerMapping[header]] = index
+      }
     })
 
     const validUserTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원']
@@ -408,6 +420,9 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
       role: AppRole
       isAdmin: boolean
       mustSetPin: boolean
+      position?: string | null
+      grade?: string | null
+      class?: string | null
     }> = []
 
     const errors: string[] = []
@@ -426,6 +441,9 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
       const email = String(row[headerIndices.email] || '').trim().toLowerCase()
       const userType = String(row[headerIndices.userType] || '').trim()
       const roleText = String(row[headerIndices.role] || '').trim()
+      const position = headerIndices.position !== undefined ? String(row[headerIndices.position] || '').trim() || null : null
+      const grade = headerIndices.grade !== undefined ? String(row[headerIndices.grade] || '').trim() || null : null
+      const userClass = headerIndices.class !== undefined ? String(row[headerIndices.class] || '').trim() || null : null
 
       // 검증
       if (!name) {
@@ -469,7 +487,10 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
         userType: finalUserType,
         role,
         isAdmin: roleData.isAdmin === true,
-        mustSetPin: true
+        mustSetPin: true,
+        position,
+        grade,
+        class: userClass
       })
     }
 
@@ -540,13 +561,13 @@ export const downloadTemplate = async (req: Request, res: Response) => {
   try {
     // 샘플 데이터 포함 템플릿
     const templateData = [
-      ['이름', '이메일', '유형', '권한'],
-      ['홍길동', 'hong@example.com', '교원', '일반 사용자'],
-      ['김철수', 'kim@example.com', '직원', '연수 관리자'],
-      ['이영희', 'lee@example.com', '공무직', '일반 사용자'],
-      ['박민수', 'park@example.com', '교원', '최고 관리자'],
-      ['정수진', 'jung@example.com', '기간제교사', '일반 사용자'],
-      ['최도현', 'choi@example.com', '교육공무직', '연수 관리자'],
+      ['이름', '이메일', '유형', '직위', '학년', '반', '권한'],
+      ['홍길동', 'hong@example.com', '교원', '교사', '1', '1', '일반 사용자'],
+      ['김철수', 'kim@example.com', '직원', '주무관', '', '', '연수 관리자'],
+      ['이영희', 'lee@example.com', '공무직', '', '', '', '일반 사용자'],
+      ['박민수', 'park@example.com', '교원', '부장교사', '2', '3', '최고 관리자'],
+      ['정수진', 'jung@example.com', '기간제교사', '교사', '3', '2', '일반 사용자'],
+      ['최도현', 'choi@example.com', '교육공무직', '', '', '', '연수 관리자'],
     ]
 
     // 워크북 생성
@@ -558,11 +579,14 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { wch: 15 }, // 이름
       { wch: 30 }, // 이메일
       { wch: 15 }, // 유형
+      { wch: 15 }, // 직위
+      { wch: 10 }, // 학년
+      { wch: 10 }, // 반
       { wch: 20 }, // 권한
     ]
 
     // 첫 번째 행 스타일 (헤더)
-    const headerRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:D1')
+    const headerRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:G1')
     for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
       const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
       if (!worksheet[cellAddress]) continue
