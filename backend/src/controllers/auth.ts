@@ -170,36 +170,21 @@ export const loginPin = async (req: Request, res: Response) => {
 
 // 기존 login 함수는 호환성을 위해 유지 (관리자용)
 export const login = async (req: Request, res: Response) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:171',message:'관리자 로그인 함수 진입',data:{hasEmail:!!req.body?.email,email:req.body?.email,hasPassword:!!req.body?.password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   try {
     const { email, password } = req.body as { email?: string; password?: string }
     
     // 이메일이 빈 문자열이면 undefined로 처리
     const normalizedEmail = email && email.trim() ? email.trim() : undefined
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:175',message:'요청 본문 파싱 완료',data:{email:normalizedEmail||'없음',emailType:typeof normalizedEmail,passwordLength:password?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     if (!password) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:176',message:'비밀번호 없음 에러',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return res.status(400).json({ error: '비밀번호를 입력해주세요.' })
     }
 
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin-password'
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:181',message:'비밀번호 검증 전',data:{passwordMatch:password===adminPassword,adminPasswordLength:adminPassword.length,receivedPasswordLength:password.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     if (password !== adminPassword) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:182',message:'비밀번호 불일치 에러',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return res.status(401).json({ error: '잘못된 비밀번호입니다.' })
     }
 
@@ -207,9 +192,6 @@ export const login = async (req: Request, res: Response) => {
     const role: AppRole = 'SUPER_ADMIN'
 
     const tokenPayload = { isAdmin: true, role, email: normalizedEmail || null, loginTime: Date.now() }
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:189',message:'토큰 페이로드 생성',data:{hasUserId:false,hasEmail:!!tokenPayload.email,email:tokenPayload.email,isAdmin:tokenPayload.isAdmin,role:tokenPayload.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     const token = jwt.sign(
       tokenPayload,
@@ -217,9 +199,6 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '24h' }
     )
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:194',message:'관리자 로그인 성공 응답',data:{hasToken:!!token,tokenLength:token.length,role,isAdmin:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     res.json({
       success: true,
@@ -229,9 +208,6 @@ export const login = async (req: Request, res: Response) => {
       message: '관리자로 로그인되었습니다.'
     })
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/e741cc26-0c96-49fc-9dc9-8cc71ca2bc2b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:202',message:'관리자 로그인 에러',data:{error:error instanceof Error?error.message:'알 수 없는 오류'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     console.error('Login error:', error)
     res.status(500).json({ error: '서버 오류가 발생했습니다.' })
   }
@@ -247,9 +223,7 @@ export const register = async (req: Request, res: Response) => {
       position?: string
       grade?: string
       class?: string
-    }
-
-    if (!name || !email) {
+    }    if (!name || !email) {
       return res.status(400).json({ error: '이름과 이메일은 필수입니다.' })
     }
 
@@ -384,4 +358,3 @@ export const googleLogin = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Google 로그인 중 오류가 발생했습니다.' })
   }
 }
-

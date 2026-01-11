@@ -11,6 +11,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: false,
+  timeout: 60000, // 60초 타임아웃 (절전 모드에서 서버 깨어나는 시간 고려)
 })
 
 // 요청 인터셉터: 토큰 추가
