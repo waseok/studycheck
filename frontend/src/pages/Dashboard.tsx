@@ -85,7 +85,7 @@ const Dashboard = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-blue-800 mb-2">🏠 대시보드</h1>
-          <p className="text-lg text-gray-700">의무연수 안내 취합 통합 플랫폼에 오신 것을 환영합니다.</p>
+          <p className="text-lg text-gray-700">와석초 의무연수 안내 취합 통합 플랫폼에 오신 것을 환영합니다.</p>
         </div>
 
         {/* 나의 연수 목록 */}

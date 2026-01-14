@@ -28,7 +28,7 @@ const Layout = ({ children }: LayoutProps) => {
                 to="/dashboard"
                 className="flex items-center px-5 py-3 text-blue-700 hover:bg-blue-50 rounded-xl font-bold text-lg transition-all"
               >
-                📚 의무연수 안내 취합 통합 플랫폼
+                📚 와석초 의무연수 안내 취합 통합 플랫폼
               </Link>
 
               {(role === 'SUPER_ADMIN') && (

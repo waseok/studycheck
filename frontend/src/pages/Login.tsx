@@ -202,7 +202,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-8 p-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            의무연수 안내 취합 통합 플랫폼
+            와석초 의무연수 안내 취합 통합 플랫폼
           </h2>
         </div>
 
