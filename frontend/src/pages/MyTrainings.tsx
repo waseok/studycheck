@@ -102,47 +102,37 @@ const MyTrainings = () => {
                   </span>
                 </div>
 
-                {participant.status !== 'completed' && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      이수번호 입력
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="이수번호를 입력하세요"
-                        value={editingCompletionNumbers[participant.id] ?? (participant.completionNumber || '')}
-                        onChange={(e) => handleCompletionNumberChange(participant.id, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSubmitCompletionNumber(participant.id)
-                          }
-                        }}
-                        className="flex-1 border-2 border-blue-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 text-base"
-                      />
-                      <button
-                        onClick={() => handleSubmitCompletionNumber(participant.id)}
-                        disabled={!editingCompletionNumbers[participant.id]?.trim() && !participant.completionNumber}
-                        className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium shadow-md transition-colors"
-                      >
-                        제출
-                      </button>
-                    </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {participant.status === 'completed' ? '이수번호 수정' : '이수번호 입력'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="이수번호를 입력하세요"
+                      value={editingCompletionNumbers[participant.id] ?? (participant.completionNumber || '')}
+                      onChange={(e) => handleCompletionNumberChange(participant.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSubmitCompletionNumber(participant.id)
+                        }
+                      }}
+                      className="flex-1 border-2 border-blue-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 text-base"
+                    />
+                    <button
+                      onClick={() => handleSubmitCompletionNumber(participant.id)}
+                      disabled={!editingCompletionNumbers[participant.id]?.trim() && !participant.completionNumber}
+                      className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium shadow-md transition-colors"
+                    >
+                      {participant.status === 'completed' ? '수정' : '제출'}
+                    </button>
                   </div>
-                )}
-
-                {participant.status === 'completed' && participant.completionNumber && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600">
-                      이수번호: <span className="font-medium">{participant.completionNumber}</span>
+                  {participant.status === 'completed' && participant.completedAt && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      완료일: {new Date(participant.completedAt).toLocaleDateString('ko-KR')}
                     </p>
-                    {participant.completedAt && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        완료일: {new Date(participant.completedAt).toLocaleDateString('ko-KR')}
-                      </p>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )
           })}
