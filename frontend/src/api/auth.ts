@@ -118,9 +118,7 @@ export const loginGoogle = async (token: string): Promise<LoginResponse> => {
     }
   }
   return response.data
-}
-
-// 회원가입 (일반 사용자용, 인증 불필요)
+}// 회원가입 (일반 사용자용, 인증 불필요)
 export const register = async (userData: {
   name: string
   email: string

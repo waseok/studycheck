@@ -259,9 +259,7 @@ export const register = async (req: Request, res: Response) => {
         isAdmin: false,
         mustSetPin: true, // PIN 설정 필요
       } as any
-    })
-
-    res.json({
+    })    res.json({
       success: true,
       message: '회원가입이 완료되었습니다. 초기 비밀번호로 로그인하여 PIN을 설정해주세요.',
       user: {

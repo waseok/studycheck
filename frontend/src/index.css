@@ -54,4 +54,3 @@ select:focus,
 textarea:focus {
   @apply border-2 border-blue-500 ring-2 ring-blue-200;
 }
-

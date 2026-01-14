@@ -56,9 +56,7 @@ export const bulkCreateUsers = async (file: File): Promise<{ success: boolean; m
 export const getMyProfile = async (): Promise<User> => {
   const response = await apiClient.get<User>('/users/me')
   return response.data
-}
-
-// 현재 로그인한 사용자 정보 수정
+}// 현재 로그인한 사용자 정보 수정
 export const updateMyProfile = async (data: {
   name?: string
   email?: string
@@ -70,4 +68,3 @@ export const updateMyProfile = async (data: {
   const response = await apiClient.put<{ success: boolean; message: string; user: User }>('/users/me', data)
   return response.data
 }
-
