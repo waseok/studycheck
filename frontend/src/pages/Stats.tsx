@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getTrainingStats, getIncompleteList } from '../api/stats'
 import { getTrainings } from '../api/trainings'
+import { sendIncompleteReminders, sendReminders } from '../api/reminders'
 import { Training } from '../types'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 
@@ -11,6 +12,8 @@ const Stats = () => {
   const [trainingStats, setTrainingStats] = useState<any>(null)
   const [incompleteList, setIncompleteList] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+  const [reminderResult, setReminderResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
@@ -54,6 +57,45 @@ const Stats = () => {
       fetchTrainingStats(selectedTraining)
     }
   }, [selectedTraining])
+
+  const handleSendReminder = async (trainingId: string, trainingName: string) => {
+    if (!confirm(`"${trainingName}" 미이수자에게 알림 메일을 발송하시겠습니까?`)) return
+
+    setSendingReminder(trainingId)
+    setReminderResult(null)
+    try {
+      const result = await sendIncompleteReminders(trainingId)
+      setReminderResult({
+        type: 'success',
+        message: result.message || `${result.sentCount}명에게 발송 완료 (실패: ${result.failedCount}명)`
+      })
+    } catch (error: any) {
+      setReminderResult({
+        type: 'error',
+        message: error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
+      })
+    } finally {
+      setSendingReminder(null)
+    }
+  }
+
+  const handleSendAllReminders = async () => {
+    if (!confirm('모든 연수의 미이수자에게 알림 메일을 발송하시겠습니까?')) return
+
+    setSendingReminder('all')
+    setReminderResult(null)
+    try {
+      const result = await sendReminders()
+      setReminderResult({ type: 'success', message: result.message })
+    } catch (error: any) {
+      setReminderResult({
+        type: 'error',
+        message: error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
+      })
+    } finally {
+      setSendingReminder(null)
+    }
+  }
 
   // 각 연수별 완료율 데이터 (원그래프용)
   const trainingPieData = trainings.map(training => {
@@ -188,6 +230,23 @@ const Stats = () => {
                       <div className="text-sm text-gray-500">완료율</div>
                     </div>
                   </div>
+
+                  {trainingStats.pending > 0 && selectedTraining && (
+                    <button
+                      onClick={() => handleSendReminder(selectedTraining, trainingStats.training?.name || '')}
+                      disabled={sendingReminder === selectedTraining}
+                      className="w-full py-2.5 px-4 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      {sendingReminder === selectedTraining ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          발송 중...
+                        </>
+                      ) : (
+                        <>📧 미이수자 {trainingStats.pending}명에게 알림 메일 발송</>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 <ResponsiveContainer width="100%" height={200}>
@@ -214,8 +273,37 @@ const Stats = () => {
           </div>
         </div>
 
+        {reminderResult && (
+          <div className={`p-4 rounded-xl text-sm font-medium ${
+            reminderResult.type === 'success'
+              ? 'bg-green-100 text-green-800 border border-green-300'
+              : 'bg-red-100 text-red-800 border border-red-300'
+          }`}>
+            {reminderResult.type === 'success' ? '✅' : '❌'} {reminderResult.message}
+            <button onClick={() => setReminderResult(null)} className="ml-3 text-xs underline opacity-70 hover:opacity-100">닫기</button>
+          </div>
+        )}
+
         <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-blue-300">
-          <h2 className="text-xl font-semibold mb-4">미이수자 목록</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">미이수자 목록</h2>
+            {incompleteList.length > 0 && (
+              <button
+                onClick={handleSendAllReminders}
+                disabled={sendingReminder === 'all'}
+                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                {sendingReminder === 'all' ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    발송 중...
+                  </>
+                ) : (
+                  <>📧 전체 미이수자에게 알림 발송</>
+                )}
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

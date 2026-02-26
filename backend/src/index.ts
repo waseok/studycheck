@@ -65,11 +65,24 @@ app.use('/api/stats', statsRoutes)
 app.use('/api/reminders', reminderRoutes)
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: '의무연수 플랫폼 API 서버' })
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', message: '의무연수 플랫폼 API 서버', timestamp: new Date().toISOString() })
 })
 
 app.listen(PORT, () => {
   console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`)
+
+  // Render 무료 티어 슬립 방지: 14분마다 자기 자신에게 ping
+  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000
+    setInterval(async () => {
+      try {
+        await fetch(`${process.env.RENDER_EXTERNAL_URL}/api/health`)
+      } catch {
+        // 네트워크 오류 무시
+      }
+    }, KEEP_ALIVE_INTERVAL)
+    console.log('🏓 Keep-alive ping 활성화 (14분 간격)')
+  }
 })
 
