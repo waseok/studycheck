@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { isAdmin, getRole } from '../api/auth'
-import { getParticipants, updateCompletionNumber } from '../api/participants'
+import { getParticipants, updateCompletionNumber, cancelCompletion } from '../api/participants'
 import { getTrainings } from '../api/trainings'
 import { sendIncompleteReminders } from '../api/reminders'
 import { TrainingParticipant, Training } from '../types'
@@ -132,6 +132,16 @@ const TrainingCollection = () => {
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.error || '이수번호 입력 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleCancelCompletion = async (participantId: string) => {
+    if (!confirm('이 참여자의 제출을 취소하시겠습니까? 이수번호가 삭제됩니다.')) return
+    try {
+      await cancelCompletion(participantId)
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '제출 취소 중 오류가 발생했습니다.')
     }
   }
 
@@ -373,6 +383,7 @@ const TrainingCollection = () => {
                     index={index}
                     participant={participant}
                     onUpdate={handleUpdateCompletionNumber}
+                    onCancel={handleCancelCompletion}
                     isAdmin={adminUser}
                   />
                 ))}
@@ -389,10 +400,11 @@ interface ParticipantRowProps {
   index: number
   participant: TrainingParticipant
   onUpdate: (id: string, completionNumber: string) => void
+  onCancel: (id: string) => void
   isAdmin: boolean
 }
 
-const ParticipantRow = ({ index, participant, onUpdate, isAdmin }: ParticipantRowProps) => {
+const ParticipantRow = ({ index, participant, onUpdate, onCancel, isAdmin }: ParticipantRowProps) => {
   const [editing, setEditing] = useState(false)
   const [completionNumber, setCompletionNumber] = useState(participant.completionNumber || '')
 
@@ -454,13 +466,21 @@ const ParticipantRow = ({ index, participant, onUpdate, isAdmin }: ParticipantRo
         {participant.user?.email || '-'}
       </td>
       {isAdmin && (
-        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
           <button
             onClick={() => setEditing(!editing)}
             className="text-indigo-600 hover:text-indigo-900"
           >
             {editing ? '저장' : '수정'}
           </button>
+          {participant.status === 'completed' && (
+            <button
+              onClick={() => onCancel(participant.id)}
+              className="text-red-600 hover:text-red-900"
+            >
+              취소
+            </button>
+          )}
         </td>
       )}
     </tr>

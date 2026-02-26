@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
-import { getMyTrainings, updateCompletionNumber } from '../api/participants'
+import { getMyTrainings, updateCompletionNumber, cancelCompletion } from '../api/participants'
 import { TrainingParticipant } from '../types'
 
 const MyTrainings = () => {
@@ -56,6 +56,21 @@ const MyTrainings = () => {
     const value = editingCompletionNumbers[participantId]?.trim()
     if (value) {
       handleUpdateCompletionNumber(participantId, value)
+    }
+  }
+
+  const handleCancelCompletion = async (participantId: string) => {
+    if (!confirm('제출을 취소하시겠습니까? 이수번호가 삭제됩니다.')) return
+    try {
+      await cancelCompletion(participantId)
+      setEditingCompletionNumbers(prev => {
+        const next = { ...prev }
+        delete next[participantId]
+        return next
+      })
+      fetchTrainings()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '제출 취소 중 오류가 발생했습니다.')
     }
   }
 
@@ -126,6 +141,14 @@ const MyTrainings = () => {
                     >
                       {participant.status === 'completed' ? '수정' : '제출'}
                     </button>
+                    {participant.status === 'completed' && (
+                      <button
+                        onClick={() => handleCancelCompletion(participant.id)}
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium shadow-md transition-colors"
+                      >
+                        제출 취소
+                      </button>
+                    )}
                   </div>
                   {participant.status === 'completed' && participant.completedAt && (
                     <p className="text-xs text-gray-500 mt-2">

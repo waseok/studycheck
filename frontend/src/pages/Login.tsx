@@ -200,8 +200,13 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <div className="flex flex-col items-center">
+          <img
+            src="/school-logo.png"
+            alt="와석초등학교 교표"
+            className="w-28 h-28 object-contain"
+          />
+          <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900">
             와석초 의무연수 안내 취합 통합 플랫폼
           </h2>
         </div>
