@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { sendManualReminders } from '../services/reminder'
-import { sendEmail, getReminderEmailTemplate, verifySmtp } from '../services/email'
+import { sendEmail, getReminderEmailTemplate, verifySmtp, getLastSendError } from '../services/email'
 import { authMiddleware, adminMiddleware } from '../middleware/auth'
 import prisma from '../utils/prisma'
 
@@ -98,11 +98,12 @@ router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, asy
       }
     }
 
+    const errorDetail = failedCount > 0 ? getLastSendError() : ''
     res.json({
-      success: true,
+      success: sentCount > 0,
       message: sentCount > 0
         ? `미이수자 ${sentCount}명에게 알림이 발송되었습니다.${failedCount > 0 ? ` (실패: ${failedCount}명)` : ''}`
-        : `발송에 실패했습니다 (${failedCount}명 실패). 수신자 이메일 주소를 확인해주세요.`,
+        : `발송 실패 (${failedCount}명).${errorDetail ? ` 원인: ${errorDetail}` : ' 수신자 이메일 주소를 확인해주세요.'}`,
       sentCount,
       failedCount,
       total: training.participants.length

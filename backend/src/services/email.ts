@@ -33,6 +33,10 @@ function postJson(hostname: string, path: string, body: string, headers: Record<
   })
 }
 
+// 마지막 발송 에러를 저장 (디버깅용)
+let lastSendError = ''
+export const getLastSendError = () => lastSendError
+
 const sendViaEmailJs = async (to: string, subject: string, html: string): Promise<boolean> => {
   try {
     const body = JSON.stringify({
@@ -48,10 +52,15 @@ const sendViaEmailJs = async (to: string, subject: string, html: string): Promis
     })
 
     const res = await postJson('api.emailjs.com', '/api/v1.0/email/send', body, {})
-    if (res.status === 200) return true
+    if (res.status === 200) {
+      lastSendError = ''
+      return true
+    }
+    lastSendError = `EmailJS ${res.status}: ${res.data}`
     console.error('EmailJS 오류:', res.status, res.data)
     return false
-  } catch (error) {
+  } catch (error: any) {
+    lastSendError = `EmailJS 예외: ${error.message}`
     console.error('EmailJS 발송 오류:', error)
     return false
   }
