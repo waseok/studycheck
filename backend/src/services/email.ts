@@ -1,32 +1,83 @@
 import nodemailer from 'nodemailer'
+import https from 'https'
 
-// SMTP 설정
+// Gmail SMTP: 465(SSL)을 기본으로 사용 (클라우드 호스팅에서 587이 차단되는 경우가 많음)
 const smtpConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: process.env.SMTP_PORT === '587' ? false : true,
   auth: {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || ''
   },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
 }
 
-// 이메일 전송기 생성
 const transporter = nodemailer.createTransport(smtpConfig)
 
-// SMTP 연결 상태 확인
-export const verifySmtp = async (): Promise<{ ok: boolean; error?: string }> => {
+// Brevo HTTP API로 이메일 발송 (SMTP가 차단된 환경용)
+const sendViaBrevo = (to: string, subject: string, html: string, fromEmail: string, fromName: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const apiKey = process.env.BREVO_API_KEY
+    if (!apiKey) { resolve(false); return }
+
+    const body = JSON.stringify({
+      sender: { name: fromName, email: fromEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    })
+
+    const req = https.request({
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body),
+      },
+      timeout: 15000,
+    }, (res) => {
+      let data = ''
+      res.on('data', (chunk: string) => { data += chunk })
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(true)
+        } else {
+          console.error('Brevo API 오류:', res.statusCode, data)
+          resolve(false)
+        }
+      })
+    })
+
+    req.on('error', (err) => { console.error('Brevo 요청 오류:', err); resolve(false) })
+    req.on('timeout', () => { req.destroy(); resolve(false) })
+    req.write(body)
+    req.end()
+  })
+}
+
+// 이메일 제공자 결정: BREVO_API_KEY가 있으면 Brevo, 없으면 SMTP
+const useBrevo = !!process.env.BREVO_API_KEY
+
+// 연결 상태 확인
+export const verifySmtp = async (): Promise<{ ok: boolean; error?: string; provider?: string }> => {
+  if (useBrevo) {
+    return { ok: true, provider: 'Brevo HTTP API' }
+  }
+
   if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-    return { ok: false, error: 'SMTP_USER 또는 SMTP_PASS 환경변수가 설정되지 않았습니다.' }
+    return { ok: false, error: 'SMTP_USER/SMTP_PASS 또는 BREVO_API_KEY 환경변수를 설정해주세요.' }
   }
   try {
     await transporter.verify()
-    return { ok: true }
+    return { ok: true, provider: `SMTP (${smtpConfig.host}:${smtpConfig.port})` }
   } catch (error: any) {
-    return { ok: false, error: error.message || 'SMTP 연결 실패' }
+    return { ok: false, error: `SMTP 연결 실패 (${smtpConfig.host}:${smtpConfig.port}): ${error.message}` }
   }
 }
 
@@ -36,23 +87,30 @@ export const sendEmail = async (
   subject: string,
   html: string
 ): Promise<boolean> => {
+  const fromEmail = process.env.SMTP_USER || process.env.BREVO_SENDER || 'noreply@school.kr'
+  const fromName = '의무연수 안내 취합 통합 플랫폼'
+
+  // Brevo HTTP API 사용
+  if (useBrevo) {
+    return sendViaBrevo(to, subject, html, fromEmail, fromName)
+  }
+
+  // SMTP 사용
   try {
     if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-      console.error('SMTP 인증 정보가 설정되지 않았습니다.')
+      console.error('이메일 설정이 되어 있지 않습니다.')
       return false
     }
 
-    const mailOptions = {
-      from: `"의무연수 안내 취합 통합 플랫폼" <${smtpConfig.auth.user}>`,
+    await transporter.sendMail({
+      from: `"${fromName}" <${smtpConfig.auth.user}>`,
       to,
       subject,
-      html
-    }
-
-    await transporter.sendMail(mailOptions)
+      html,
+    })
     return true
   } catch (error) {
-    console.error('이메일 발송 오류:', error)
+    console.error('SMTP 발송 오류:', error)
     return false
   }
 }
