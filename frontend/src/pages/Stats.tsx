@@ -70,10 +70,10 @@ const Stats = () => {
         message: result.message || `${result.sentCount}명에게 발송 완료 (실패: ${result.failedCount}명)`
       })
     } catch (error: any) {
-      setReminderResult({
-        type: 'error',
-        message: error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
-      })
+      const msg = error.code === 'ECONNABORTED'
+        ? '요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.'
+        : error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
+      setReminderResult({ type: 'error', message: msg })
     } finally {
       setSendingReminder(null)
     }
@@ -88,10 +88,10 @@ const Stats = () => {
       const result = await sendReminders()
       setReminderResult({ type: 'success', message: result.message })
     } catch (error: any) {
-      setReminderResult({
-        type: 'error',
-        message: error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
-      })
+      const msg = error.code === 'ECONNABORTED'
+        ? '요청 시간이 초과되었습니다. 서버가 응답하지 않습니다.'
+        : error.response?.data?.error || '알림 발송에 실패했습니다. SMTP 설정을 확인해주세요.'
+      setReminderResult({ type: 'error', message: msg })
     } finally {
       setSendingReminder(null)
     }

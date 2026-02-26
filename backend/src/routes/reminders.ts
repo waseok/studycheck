@@ -1,14 +1,24 @@
 import { Router } from 'express'
 import { sendManualReminders } from '../services/reminder'
-import { sendEmail, getReminderEmailTemplate } from '../services/email'
+import { sendEmail, getReminderEmailTemplate, verifySmtp } from '../services/email'
 import { authMiddleware, adminMiddleware } from '../middleware/auth'
 import prisma from '../utils/prisma'
 
 const router = Router()
 
+// SMTP 상태 확인 (관리자만)
+router.get('/smtp-status', authMiddleware, adminMiddleware, async (_req, res) => {
+  const result = await verifySmtp()
+  res.json(result)
+})
+
 // 수동으로 리마인더 발송 (관리자만)
 router.post('/send', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    const smtp = await verifySmtp()
+    if (!smtp.ok) {
+      return res.status(400).json({ error: `SMTP 설정 오류: ${smtp.error}` })
+    }
     await sendManualReminders()
     res.json({ success: true, message: '리마인더 발송이 완료되었습니다.' })
   } catch (error) {
@@ -20,6 +30,12 @@ router.post('/send', authMiddleware, adminMiddleware, async (req, res) => {
 // 특정 연수의 미이수자에게 알림 발송 (관리자만)
 router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    // SMTP 연결 먼저 확인
+    const smtp = await verifySmtp()
+    if (!smtp.ok) {
+      return res.status(400).json({ error: `SMTP 설정 오류: ${smtp.error}` })
+    }
+
     const { trainingId } = req.params
     
     const training = await prisma.training.findUnique({
@@ -44,6 +60,10 @@ router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, asy
       return res.status(404).json({ error: '연수를 찾을 수 없습니다.' })
     }
 
+    if (training.participants.length === 0) {
+      return res.json({ success: true, message: '알림을 보낼 미이수자가 없습니다.', sentCount: 0, failedCount: 0, total: 0 })
+    }
+
     let sentCount = 0
     let failedCount = 0
 
@@ -60,7 +80,6 @@ router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, asy
         const success = await sendEmail(participant.user.email, subject, html)
 
         if (success) {
-          // 리마인더 로그 저장
           await prisma.trainingReminder.create({
             data: {
               trainingId: training.id,
@@ -81,7 +100,9 @@ router.post('/send-incomplete/:trainingId', authMiddleware, adminMiddleware, asy
 
     res.json({
       success: true,
-      message: `미이수자 ${sentCount}명에게 알림이 발송되었습니다.`,
+      message: sentCount > 0
+        ? `미이수자 ${sentCount}명에게 알림이 발송되었습니다.${failedCount > 0 ? ` (실패: ${failedCount}명)` : ''}`
+        : `발송에 실패했습니다 (${failedCount}명 실패). 수신자 이메일 주소를 확인해주세요.`,
       sentCount,
       failedCount,
       total: training.participants.length

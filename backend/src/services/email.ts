@@ -4,15 +4,31 @@ import nodemailer from 'nodemailer'
 const smtpConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || ''
-  }
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 }
 
 // 이메일 전송기 생성
 const transporter = nodemailer.createTransport(smtpConfig)
+
+// SMTP 연결 상태 확인
+export const verifySmtp = async (): Promise<{ ok: boolean; error?: string }> => {
+  if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+    return { ok: false, error: 'SMTP_USER 또는 SMTP_PASS 환경변수가 설정되지 않았습니다.' }
+  }
+  try {
+    await transporter.verify()
+    return { ok: true }
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'SMTP 연결 실패' }
+  }
+}
 
 // 이메일 발송 함수
 export const sendEmail = async (
@@ -21,6 +37,11 @@ export const sendEmail = async (
   html: string
 ): Promise<boolean> => {
   try {
+    if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+      console.error('SMTP 인증 정보가 설정되지 않았습니다.')
+      return false
+    }
+
     const mailOptions = {
       from: `"의무연수 안내 취합 통합 플랫폼" <${smtpConfig.auth.user}>`,
       to,
