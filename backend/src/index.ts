@@ -74,13 +74,13 @@ app.listen(PORT, () => {
 
   // Render 무료 티어 슬립 방지: 14분마다 자기 자신에게 ping
   if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    const https = require('https')
+    const http = require('http')
     const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000
-    setInterval(async () => {
-      try {
-        await fetch(`${process.env.RENDER_EXTERNAL_URL}/api/health`)
-      } catch {
-        // 네트워크 오류 무시
-      }
+    const pingUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`
+    setInterval(() => {
+      const client = pingUrl.startsWith('https') ? https : http
+      client.get(pingUrl, () => {}).on('error', () => {})
     }, KEEP_ALIVE_INTERVAL)
     console.log('🏓 Keep-alive ping 활성화 (14분 간격)')
   }
