@@ -1,11 +1,9 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { OAuth2Client } from 'google-auth-library'
+import https from 'https'
 import prisma from '../utils/prisma'
 
-const INITIAL_PASSWORD = process.env.SCHOOL_PASSWORD || '1234'
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin-password'
 const DEFAULT_DEV_SECRET = 'unified-dev-secret-2025'
 const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_DEV_SECRET
 
@@ -223,7 +221,9 @@ export const register = async (req: Request, res: Response) => {
       position?: string
       grade?: string
       class?: string
-    }    if (!name || !email) {
+    }
+
+    if (!name || !email) {
       return res.status(400).json({ error: '이름과 이메일은 필수입니다.' })
     }
 
@@ -259,7 +259,9 @@ export const register = async (req: Request, res: Response) => {
         isAdmin: false,
         mustSetPin: true, // PIN 설정 필요
       } as any
-    })    res.json({
+    })
+
+    res.json({
       success: true,
       message: '회원가입이 완료되었습니다. 초기 비밀번호로 로그인하여 PIN을 설정해주세요.',
       user: {
@@ -294,18 +296,25 @@ export const googleLogin = async (req: Request, res: Response) => {
     }
 
     // Google 사용자 정보 가져오기 (access_token 사용)
-    const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`)
-    
-    if (!response.ok) {
-      console.error('Google API 오류:', response.status, response.statusText)
-      return res.status(401).json({ error: 'Google 사용자 정보를 가져올 수 없습니다.' })
-    }
+    const userInfo = await new Promise<{ email?: string; name?: string; picture?: string }>((resolve, reject) => {
+      https.get(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`, (resp) => {
+        let data = ''
+        resp.on('data', (chunk: string) => { data += chunk })
+        resp.on('end', () => {
+          if (resp.statusCode !== 200) {
+            console.error('Google API 오류:', resp.statusCode)
+            reject(new Error('Google API error'))
+            return
+          }
+          try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+        })
+      }).on('error', reject)
+    })
 
-    const userInfo = await response.json() as { email?: string; name?: string; picture?: string }
-    const { email, name, picture } = userInfo
+    const { email, name } = userInfo
 
     if (!email) {
-      return res.status(400).json({ error: '이메일 정보를 가져올 수 없습니다.' })
+      return res.status(401).json({ error: 'Google 사용자 정보를 가져올 수 없습니다.' })
     }
 
     // DB에서 사용자 찾기 또는 생성

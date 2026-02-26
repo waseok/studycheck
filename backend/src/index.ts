@@ -4,6 +4,8 @@ dotenv.config()
 
 import express from 'express'
 import cors from 'cors'
+import https from 'https'
+import http from 'http'
 import authRoutes from './routes/auth'
 import userRoutes from './routes/users'
 import trainingRoutes from './routes/trainings'
@@ -74,8 +76,6 @@ app.listen(PORT, () => {
 
   // Render 무료 티어 슬립 방지: 14분마다 자기 자신에게 ping
   if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
-    const https = require('https')
-    const http = require('http')
     const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000
     const pingUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`
     setInterval(() => {
