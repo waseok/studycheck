@@ -1,15 +1,98 @@
 import nodemailer from 'nodemailer'
 import https from 'https'
 
-// Gmail SMTP: 465(SSL)을 기본으로 사용 (클라우드 호스팅에서 587이 차단되는 경우가 많음)
+// ============================================================
+// 이메일 제공자 (우선순위: EmailJS > Brevo > SMTP)
+// ============================================================
+
+type EmailProvider = 'emailjs' | 'brevo' | 'smtp'
+
+function getProvider(): EmailProvider {
+  if (process.env.EMAILJS_SERVICE_ID && process.env.EMAILJS_PUBLIC_KEY) return 'emailjs'
+  if (process.env.BREVO_API_KEY) return 'brevo'
+  return 'smtp'
+}
+
+const provider = getProvider()
+
+// ============================================================
+// EmailJS HTTP API
+// ============================================================
+
+function postJson(hostname: string, path: string, body: string, headers: Record<string, string>): Promise<{ status: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ hostname, path, method: 'POST', headers: { ...headers, 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) }, timeout: 15000 }, (res) => {
+      let data = ''
+      res.on('data', (c: string) => { data += c })
+      res.on('end', () => resolve({ status: res.statusCode || 500, data }))
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')) })
+    req.write(body)
+    req.end()
+  })
+}
+
+const sendViaEmailJs = async (to: string, subject: string, html: string): Promise<boolean> => {
+  try {
+    const body = JSON.stringify({
+      service_id: process.env.EMAILJS_SERVICE_ID,
+      template_id: process.env.EMAILJS_TEMPLATE_ID,
+      user_id: process.env.EMAILJS_PUBLIC_KEY,
+      accessToken: process.env.EMAILJS_PRIVATE_KEY || undefined,
+      template_params: {
+        to_email: to,
+        subject: subject,
+        message_html: html,
+      }
+    })
+
+    const res = await postJson('api.emailjs.com', '/api/v1.0/email/send', body, {})
+    if (res.status === 200) return true
+    console.error('EmailJS 오류:', res.status, res.data)
+    return false
+  } catch (error) {
+    console.error('EmailJS 발송 오류:', error)
+    return false
+  }
+}
+
+// ============================================================
+// Brevo HTTP API
+// ============================================================
+
+const sendViaBrevo = async (to: string, subject: string, html: string): Promise<boolean> => {
+  try {
+    const fromEmail = process.env.SMTP_USER || 'noreply@school.kr'
+    const body = JSON.stringify({
+      sender: { name: '의무연수 안내 취합 통합 플랫폼', email: fromEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    })
+
+    const res = await postJson('api.brevo.com', '/v3/smtp/email', body, {
+      'accept': 'application/json',
+      'api-key': process.env.BREVO_API_KEY || '',
+    })
+    if (res.status >= 200 && res.status < 300) return true
+    console.error('Brevo API 오류:', res.status, res.data)
+    return false
+  } catch (error) {
+    console.error('Brevo 발송 오류:', error)
+    return false
+  }
+}
+
+// ============================================================
+// SMTP (Gmail 등)
+// ============================================================
+
 const smtpConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   secure: process.env.SMTP_PORT === '587' ? false : true,
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
-  },
+  auth: { user: process.env.SMTP_USER || '', pass: process.env.SMTP_PASS || '' },
   connectionTimeout: 15000,
   greetingTimeout: 15000,
   socketTimeout: 20000,
@@ -17,101 +100,50 @@ const smtpConfig = {
 
 const transporter = nodemailer.createTransport(smtpConfig)
 
-// Brevo HTTP API로 이메일 발송 (SMTP가 차단된 환경용)
-const sendViaBrevo = (to: string, subject: string, html: string, fromEmail: string, fromName: string): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const apiKey = process.env.BREVO_API_KEY
-    if (!apiKey) { resolve(false); return }
-
-    const body = JSON.stringify({
-      sender: { name: fromName, email: fromEmail },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    })
-
-    const req = https.request({
-      hostname: 'api.brevo.com',
-      path: '/v3/smtp/email',
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': apiKey,
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(body),
-      },
-      timeout: 15000,
-    }, (res) => {
-      let data = ''
-      res.on('data', (chunk: string) => { data += chunk })
-      res.on('end', () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(true)
-        } else {
-          console.error('Brevo API 오류:', res.statusCode, data)
-          resolve(false)
-        }
-      })
-    })
-
-    req.on('error', (err) => { console.error('Brevo 요청 오류:', err); resolve(false) })
-    req.on('timeout', () => { req.destroy(); resolve(false) })
-    req.write(body)
-    req.end()
-  })
-}
-
-// 이메일 제공자 결정: BREVO_API_KEY가 있으면 Brevo, 없으면 SMTP
-const useBrevo = !!process.env.BREVO_API_KEY
-
-// 연결 상태 확인
-export const verifySmtp = async (): Promise<{ ok: boolean; error?: string; provider?: string }> => {
-  if (useBrevo) {
-    return { ok: true, provider: 'Brevo HTTP API' }
-  }
-
-  if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-    return { ok: false, error: 'SMTP_USER/SMTP_PASS 또는 BREVO_API_KEY 환경변수를 설정해주세요.' }
-  }
+const sendViaSmtp = async (to: string, subject: string, html: string): Promise<boolean> => {
   try {
-    await transporter.verify()
-    return { ok: true, provider: `SMTP (${smtpConfig.host}:${smtpConfig.port})` }
-  } catch (error: any) {
-    return { ok: false, error: `SMTP 연결 실패 (${smtpConfig.host}:${smtpConfig.port}): ${error.message}` }
-  }
-}
-
-// 이메일 발송 함수
-export const sendEmail = async (
-  to: string,
-  subject: string,
-  html: string
-): Promise<boolean> => {
-  const fromEmail = process.env.SMTP_USER || process.env.BREVO_SENDER || 'noreply@school.kr'
-  const fromName = '의무연수 안내 취합 통합 플랫폼'
-
-  // Brevo HTTP API 사용
-  if (useBrevo) {
-    return sendViaBrevo(to, subject, html, fromEmail, fromName)
-  }
-
-  // SMTP 사용
-  try {
-    if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-      console.error('이메일 설정이 되어 있지 않습니다.')
-      return false
-    }
-
+    if (!smtpConfig.auth.user || !smtpConfig.auth.pass) return false
     await transporter.sendMail({
-      from: `"${fromName}" <${smtpConfig.auth.user}>`,
-      to,
-      subject,
-      html,
+      from: `"의무연수 안내 취합 통합 플랫폼" <${smtpConfig.auth.user}>`,
+      to, subject, html,
     })
     return true
   } catch (error) {
     console.error('SMTP 발송 오류:', error)
     return false
+  }
+}
+
+// ============================================================
+// 공통 인터페이스
+// ============================================================
+
+export const verifySmtp = async (): Promise<{ ok: boolean; error?: string; provider?: string }> => {
+  if (provider === 'emailjs') {
+    if (!process.env.EMAILJS_TEMPLATE_ID) {
+      return { ok: false, error: 'EMAILJS_TEMPLATE_ID 환경변수가 설정되지 않았습니다.' }
+    }
+    return { ok: true, provider: 'EmailJS' }
+  }
+  if (provider === 'brevo') {
+    return { ok: true, provider: 'Brevo HTTP API' }
+  }
+  if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+    return { ok: false, error: 'EMAILJS_SERVICE_ID 또는 SMTP_USER/SMTP_PASS 환경변수를 설정해주세요.' }
+  }
+  try {
+    await transporter.verify()
+    return { ok: true, provider: `SMTP (${smtpConfig.host}:${smtpConfig.port})` }
+  } catch (error: any) {
+    return { ok: false, error: `SMTP 연결 실패: ${error.message}` }
+  }
+}
+
+export const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
+  switch (provider) {
+    case 'emailjs': return sendViaEmailJs(to, subject, html)
+    case 'brevo': return sendViaBrevo(to, subject, html)
+    case 'smtp': return sendViaSmtp(to, subject, html)
   }
 }
 
