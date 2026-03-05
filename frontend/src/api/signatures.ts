@@ -25,6 +25,7 @@ export interface SignatureBookData {
     manager: string
     implementationDate: string | null
     hours: string | null
+    registrationBook: string | null
   }
   participants: SignatureParticipant[]
 }

@@ -139,6 +139,16 @@ const SignatureBookDetail = () => {
   const signedCount = data?.participants.filter(p => p.signature).length ?? 0
   const totalCount = data?.participants.length ?? 0
 
+  // 연수등록부의 연수내용-담당자 쌍 파싱
+  const trainingItems: { content: string; manager: string }[] | null = (() => {
+    if (!data?.training.registrationBook) return null
+    try {
+      const parsed = JSON.parse(data.training.registrationBook)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      return null
+    } catch { return null }
+  })()
+
   return (
     <Layout>
       <div className="px-4 max-w-5xl mx-auto">
@@ -214,14 +224,44 @@ const SignatureBookDetail = () => {
                     <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold w-20">이수시간</th>
                     <td className="border border-gray-400 px-3 py-2">{data.training.hours || '-'}</td>
                   </tr>
-                  <tr>
-                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">업무부서</th>
-                    <td className="border border-gray-400 px-3 py-2">{data.training.department || '-'}</td>
-                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">담당자</th>
-                    <td className="border border-gray-400 px-3 py-2">{data.training.manager}</td>
-                  </tr>
+                  {!trainingItems && (
+                    <tr>
+                      <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">업무부서</th>
+                      <td className="border border-gray-400 px-3 py-2">{data.training.department || '-'}</td>
+                      <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">담당자</th>
+                      <td className="border border-gray-400 px-3 py-2">{data.training.manager}</td>
+                    </tr>
+                  )}
+                  {trainingItems && (
+                    <tr>
+                      <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">업무부서</th>
+                      <td className="border border-gray-400 px-3 py-2" colSpan={3}>{data.training.department || '-'}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+
+              {/* 연수내용-담당자 테이블 (연수등록부 만들기로 생성된 경우) */}
+              {trainingItems && (
+                <table className="w-full mb-5 text-sm border border-gray-400" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-400 px-2 py-2 text-center w-10">순번</th>
+                      <th className="border border-gray-400 px-2 py-2 text-left">연수 내용</th>
+                      <th className="border border-gray-400 px-2 py-2 text-center w-28">담당자</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trainingItems.map((item, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-400 px-2 py-2 text-center text-gray-600">{idx + 1}</td>
+                        <td className="border border-gray-400 px-2 py-2">{item.content}</td>
+                        <td className="border border-gray-400 px-2 py-2 text-center">{item.manager}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
               {/* 서명 테이블 */}
               <table className="w-full text-sm border border-gray-400" style={{ borderCollapse: 'collapse' }}>

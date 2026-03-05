@@ -20,9 +20,14 @@ export const getSignatures = async (req: Request, res: Response) => {
       }
     })
 
-    const signatures = await (prisma as any).trainingSignature.findMany({
-      where: { trainingId }
-    })
+    let signatures: any[] = []
+    try {
+      signatures = await (prisma as any).trainingSignature.findMany({
+        where: { trainingId }
+      })
+    } catch (sigErr) {
+      console.error('TrainingSignature query failed:', sigErr)
+    }
 
     const signatureMap = new Map(signatures.map((s: any) => [s.userId, s]))
 
