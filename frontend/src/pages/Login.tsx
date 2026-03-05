@@ -27,7 +27,9 @@ const Login = () => {
     userType: '교원',
     position: '',
     grade: '',
-    class: ''
+    class: '',
+    pin: '',
+    pinConfirm: '',
   })
   const [registerLoading, setRegisterLoading] = useState(false)
   const navigate = useNavigate()
@@ -177,15 +179,33 @@ const Login = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!/^\d{4}$/.test(registerData.pin)) {
+      setError('PIN은 숫자 4자리여야 합니다.')
+      return
+    }
+    if (registerData.pin !== registerData.pinConfirm) {
+      setError('PIN이 일치하지 않습니다.')
+      return
+    }
+
     setRegisterLoading(true)
 
     try {
-      const result = await register(registerData)
+      const result = await register({
+        name: registerData.name,
+        email: registerData.email,
+        userType: registerData.userType,
+        pin: registerData.pin,
+        position: registerData.position,
+        grade: registerData.grade,
+        class: registerData.class,
+      })
       if (result.success) {
-        alert('회원가입이 완료되었습니다. 초기 비밀번호(1234)로 로그인하여 PIN을 설정해주세요.')
+        alert('회원가입이 완료되었습니다. PIN으로 로그인해주세요.')
         setShowRegister(false)
-        setRegisterData({ name: '', email: '', userType: '교원', position: '', grade: '', class: '' })
-        setActiveTab('initial')
+        setRegisterData({ name: '', email: '', userType: '교원', position: '', grade: '', class: '', pin: '', pinConfirm: '' })
+        setActiveTab('pin')
         setEmail(registerData.email)
       } else {
         setError(result.message || '회원가입에 실패했습니다.')
@@ -536,10 +556,35 @@ const Login = () => {
                   />
                 </div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <p className="text-sm text-blue-800">
-                  회원가입 후 초기 비밀번호(1234)로 로그인하여 PIN을 설정해주세요.
-                </p>
+              <div>
+                <label htmlFor="register-pin" className="block text-sm font-medium text-gray-700">
+                  PIN (숫자 4자리) *
+                </label>
+                <input
+                  id="register-pin"
+                  type="password"
+                  required
+                  maxLength={4}
+                  value={registerData.pin}
+                  onChange={(e) => setRegisterData({ ...registerData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  className="mt-1 block w-full rounded-md border-2 border-gray-400 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="사용할 PIN 4자리를 입력하세요"
+                />
+              </div>
+              <div>
+                <label htmlFor="register-pin-confirm" className="block text-sm font-medium text-gray-700">
+                  PIN 확인 *
+                </label>
+                <input
+                  id="register-pin-confirm"
+                  type="password"
+                  required
+                  maxLength={4}
+                  value={registerData.pinConfirm}
+                  onChange={(e) => setRegisterData({ ...registerData, pinConfirm: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  className="mt-1 block w-full rounded-md border-2 border-gray-400 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="PIN을 다시 입력하세요"
+                />
               </div>
               <div className="flex gap-3">
                 <button
@@ -547,7 +592,7 @@ const Login = () => {
                   onClick={() => {
                     setShowRegister(false)
                     setError('')
-                    setRegisterData({ name: '', email: '', userType: '교원', position: '', grade: '', class: '' })
+                    setRegisterData({ name: '', email: '', userType: '교원', position: '', grade: '', class: '', pin: '', pinConfirm: '' })
                   }}
                   className="flex-1 px-4 py-2 border-2 border-gray-400 rounded-md text-gray-700 hover:bg-gray-50"
                 >
