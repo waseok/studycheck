@@ -39,8 +39,10 @@ const SignatureBookDetail = () => {
     try {
       const result = await getSignatureBook(trainingId)
       setData(result)
-    } catch {
-      setError('등록부를 불러오지 못했습니다.')
+    } catch (err: any) {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.error || err?.message || '알 수 없는 오류'
+      setError(`등록부를 불러오지 못했습니다. (${status ? `HTTP ${status}: ` : ''}${msg})`)
     } finally {
       setLoading(false)
     }

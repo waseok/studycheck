@@ -20,14 +20,9 @@ export const getSignatures = async (req: Request, res: Response) => {
       }
     })
 
-    let signatures: any[] = []
-    try {
-      signatures = await (prisma as any).trainingSignature.findMany({
-        where: { trainingId }
-      })
-    } catch (sigErr) {
-      console.error('TrainingSignature query failed:', sigErr)
-    }
+    const signatures = await prisma.trainingSignature.findMany({
+      where: { trainingId }
+    })
 
     const signatureMap = new Map(signatures.map((s: any) => [s.userId, s]))
 
@@ -85,7 +80,7 @@ export const saveSignature = async (req: Request, res: Response) => {
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 
-    const signature = await (prisma as any).trainingSignature.upsert({
+    const signature = await prisma.trainingSignature.upsert({
       where: { trainingId_userId: { trainingId, userId } },
       create: { trainingId, userId, signatureImage, ipAddress },
       update: { signatureImage, signedAt: new Date(), ipAddress }
@@ -103,7 +98,7 @@ export const deleteSignature = async (req: Request, res: Response) => {
   try {
     const { trainingId, userId } = req.params
 
-    await (prisma as any).trainingSignature.deleteMany({
+    await prisma.trainingSignature.deleteMany({
       where: { trainingId, userId }
     })
 
