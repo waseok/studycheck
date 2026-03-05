@@ -214,17 +214,22 @@ export const login = async (req: Request, res: Response) => {
 // 회원가입 (일반 사용자용)
 export const register = async (req: Request, res: Response) => {
   try {
-    const { name, email, userType, position, grade, class: userClass } = req.body as { 
+    const { name, email, userType, position, grade, class: userClass, pin } = req.body as {
       name?: string
       email?: string
       userType?: string
       position?: string
       grade?: string
       class?: string
+      pin?: string
     }
 
     if (!name || !email) {
       return res.status(400).json({ error: '이름과 이메일은 필수입니다.' })
+    }
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: '4자리 숫자 PIN을 입력해주세요.' })
     }
 
     // 이메일 형식 검증
@@ -246,6 +251,9 @@ export const register = async (req: Request, res: Response) => {
     const validUserTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
     const finalUserType = userType && validUserTypes.includes(userType) ? userType : '교직원'
 
+    // PIN 해시화
+    const pinHash = await bcrypt.hash(pin, 10)
+
     // 회원가입 시 일반 사용자(USER)로 자동 등록
     const user = await prisma.user.create({
       data: {
@@ -257,13 +265,14 @@ export const register = async (req: Request, res: Response) => {
         class: userClass?.trim() || null,
         role: 'USER',
         isAdmin: false,
-        mustSetPin: true, // PIN 설정 필요
+        mustSetPin: false,
+        pinHash,
       } as any
     })
 
     res.json({
       success: true,
-      message: '회원가입이 완료되었습니다. 초기 비밀번호로 로그인하여 PIN을 설정해주세요.',
+      message: '회원가입이 완료되었습니다. PIN으로 로그인해주세요.',
       user: {
         id: user.id,
         name: user.name,

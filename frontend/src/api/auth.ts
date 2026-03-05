@@ -123,6 +123,7 @@ export const register = async (userData: {
   name: string
   email: string
   userType: string
+  pin: string
   position?: string
   grade?: string
   class?: string
