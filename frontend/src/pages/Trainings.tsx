@@ -190,7 +190,6 @@ const Trainings = () => {
     try {
       await createTraining({
         name: registerFormData.name,
-        description: '',
         registrationBook: JSON.stringify(validItems),
         cycle: registerFormData.cycle,
         targetUsers: registerFormData.targetUsers,
