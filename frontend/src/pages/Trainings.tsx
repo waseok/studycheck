@@ -4,7 +4,8 @@ import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getTrainings, createTraining, updateTraining, deleteTraining } from '../api/trainings'
 import { sendIncompleteReminders } from '../api/reminders'
-import { Training } from '../types'
+import { Training, User } from '../types'
+import apiClient from '../api/client'
 
 interface TrainingItem {
   content: string
@@ -31,6 +32,14 @@ const Trainings = () => {
     methodLink: '',
     deadline: ''
   })
+
+  // 참여자 관리 관련 상태
+  const [showParticipantModal, setShowParticipantModal] = useState(false)
+  const [participantTraining, setParticipantTraining] = useState<Training | null>(null)
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [participantIds, setParticipantIds] = useState<Set<string>>(new Set())
+  const [participantLoading, setParticipantLoading] = useState(false)
+  const [participantSearch, setParticipantSearch] = useState('')
 
   // 연수등록부 만들기 관련 상태
   const [showRegisterModal, setShowRegisterModal] = useState(false)
@@ -62,6 +71,69 @@ const Trainings = () => {
       console.error('연수 목록 조회 오류:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 사용자 정렬 함수: 관리자 → 교원(학년/반순) → 교원(학년반없음) → 유치원 → 행정실
+  const sortUsers = (users: User[]): User[] => {
+    const typeOrder = (u: User): number => {
+      if (u.role === 'SUPER_ADMIN' || u.role === 'TRAINING_ADMIN') return 0
+      const t = u.userType
+      if (t === '교원' || t === '기간제교사') {
+        return (u.grade || u.class) ? 1 : 2
+      }
+      if (t === '유치원') return 3
+      return 4 // 직원, 공무직, 교육공무직, 행정실 등
+    }
+    return [...users].sort((a, b) => {
+      const oa = typeOrder(a), ob = typeOrder(b)
+      if (oa !== ob) return oa - ob
+      // 교원 학년/반 순
+      if (oa === 1) {
+        const ga = parseInt(a.grade || '99') || 99
+        const gb = parseInt(b.grade || '99') || 99
+        if (ga !== gb) return ga - gb
+        const ca = parseInt(a.class || '99') || 99
+        const cb = parseInt(b.class || '99') || 99
+        if (ca !== cb) return ca - cb
+      }
+      return a.name.localeCompare(b.name, 'ko')
+    })
+  }
+
+  const handleOpenParticipantModal = async (training: Training) => {
+    setParticipantTraining(training)
+    setParticipantSearch('')
+    setShowParticipantModal(true)
+    setParticipantLoading(true)
+    try {
+      const [usersRes, participantsRes] = await Promise.all([
+        apiClient.get<User[]>('/users'),
+        apiClient.get<{ userId: string }[]>(`/participants/training/${training.id}`)
+      ])
+      setAllUsers(sortUsers(usersRes.data))
+      setParticipantIds(new Set(participantsRes.data.map((p: any) => p.userId)))
+    } catch {
+      alert('데이터를 불러오지 못했습니다.')
+      setShowParticipantModal(false)
+    } finally {
+      setParticipantLoading(false)
+    }
+  }
+
+  const handleToggleParticipant = async (userId: string, isIn: boolean) => {
+    if (!participantTraining) return
+    try {
+      if (isIn) {
+        await apiClient.delete(`/participants/training/${participantTraining.id}/user/${userId}`)
+        setParticipantIds(prev => { const s = new Set(prev); s.delete(userId); return s })
+      } else {
+        await apiClient.post(`/participants/training/${participantTraining.id}/add`, { userId })
+        setParticipantIds(prev => new Set([...prev, userId]))
+      }
+      fetchTrainings()
+    } catch {
+      alert('변경 중 오류가 발생했습니다.')
     }
   }
 
@@ -331,6 +403,13 @@ const Trainings = () => {
                         className="text-indigo-600 hover:text-indigo-900"
                       >
                         취합
+                      </button>
+                      <button
+                        onClick={() => handleOpenParticipantModal(training)}
+                        className="text-green-600 hover:text-green-900"
+                        title="참여자 추가/제거"
+                      >
+                        👥 참여자
                       </button>
                       <button
                         onClick={async () => {
@@ -667,6 +746,90 @@ const Trainings = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* 참여자 관리 모달 */}
+      {showParticipantModal && participantTraining && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b">
+              <h2 className="text-lg font-bold text-gray-900">👥 참여자 관리</h2>
+              <p className="text-sm text-gray-500 mt-0.5">{participantTraining.name}</p>
+            </div>
+
+            <div className="px-5 pt-3">
+              <input
+                type="text"
+                placeholder="이름 검색..."
+                value={participantSearch}
+                onChange={e => setParticipantSearch(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                참여자 {participantIds.size}명 / 전체 {allUsers.length}명
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
+              {participantLoading ? (
+                <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+              ) : (() => {
+                const filtered = allUsers.filter(u =>
+                  u.name.includes(participantSearch) ||
+                  u.userType.includes(participantSearch) ||
+                  (u.grade && u.grade.includes(participantSearch))
+                )
+
+                // 그룹 구분
+                const groups: { label: string; users: User[] }[] = [
+                  { label: '🔑 관리자', users: filtered.filter(u => u.role === 'SUPER_ADMIN' || u.role === 'TRAINING_ADMIN') },
+                  { label: '🏫 교원 (학급 있음)', users: filtered.filter(u => (u.userType === '교원' || u.userType === '기간제교사') && (u.grade || u.class)) },
+                  { label: '📚 교원 (학급 없음)', users: filtered.filter(u => (u.userType === '교원' || u.userType === '기간제교사') && !u.grade && !u.class) },
+                  { label: '🌸 유치원', users: filtered.filter(u => u.userType === '유치원') },
+                  { label: '🏢 행정실/기타', users: filtered.filter(u => !['교원', '기간제교사', '유치원'].includes(u.userType) && u.role !== 'SUPER_ADMIN' && u.role !== 'TRAINING_ADMIN') },
+                ]
+
+                return groups.map(g => g.users.length > 0 && (
+                  <div key={g.label} className="mb-3">
+                    <div className="text-xs font-semibold text-gray-400 uppercase mb-1 px-1">{g.label}</div>
+                    {g.users.map(u => {
+                      const isIn = participantIds.has(u.id)
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => handleToggleParticipant(u.id, isIn)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-all ${
+                            isIn ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50 border border-transparent'
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 ${
+                            isIn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            {isIn ? '✓' : ''}
+                          </span>
+                          <span className="font-medium text-gray-900">{u.name}</span>
+                          <span className="text-gray-400 text-xs">
+                            {u.grade && u.class ? `${u.grade}학년 ${u.class}반` : u.grade ? `${u.grade}학년` : ''}
+                            {u.position ? ` · ${u.position}` : ''}
+                            {' '}{u.userType}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))
+              })()}
+            </div>
+
+            <div className="p-5 border-t">
+              <button
+                onClick={() => setShowParticipantModal(false)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}
