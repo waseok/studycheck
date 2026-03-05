@@ -26,6 +26,8 @@ export interface Training {
   method?: string
   methodLink?: string
   deadline?: string
+  isCompleted?: boolean
+  completedAt?: string
   createdAt: string
   updatedAt: string
   participants?: TrainingParticipant[]
