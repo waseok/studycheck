@@ -79,7 +79,7 @@ const Layout = ({ children }: LayoutProps) => {
                     : 'text-blue-700 hover:bg-blue-100'
                 }`}
               >
-                ✍️ 연수등록부
+                ✍️ 연수등록부 서명하기
               </Link>
 
               <Link

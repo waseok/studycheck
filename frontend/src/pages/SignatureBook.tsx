@@ -11,6 +11,7 @@ interface Training {
   implementationDate: string | null
   deadline: string | null
   targetUsers: string[]
+  registrationBook: string | null
   participants: { id: string }[]
 }
 
@@ -24,7 +25,7 @@ const SignatureBook = () => {
     const fetchTrainings = async () => {
       try {
         const response = await apiClient.get<Training[]>('/trainings')
-        setTrainings(response.data)
+        setTrainings(response.data.filter(t => t.registrationBook))
       } catch {
         setError('연수 목록을 불러오지 못했습니다.')
       } finally {
@@ -38,7 +39,7 @@ const SignatureBook = () => {
     <Layout>
       <div className="px-4">
         <div className="flex items-center gap-3 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">✍️ 연수등록부</h1>
+          <h1 className="text-2xl font-bold text-gray-900">✍️ 연수등록부 서명하기</h1>
           <span className="text-sm text-gray-500">연수를 선택하면 등록부에 서명할 수 있습니다</span>
         </div>
 
@@ -49,7 +50,7 @@ const SignatureBook = () => {
         {loading ? (
           <div className="text-center py-12 text-gray-500">불러오는 중...</div>
         ) : trainings.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">등록된 연수가 없습니다.</div>
+          <div className="text-center py-12 text-gray-500">연수등록부가 있는 연수가 없습니다.<br /><span className="text-sm">연수 관리 &gt; 연수등록부 만들기에서 먼저 등록부를 작성해주세요.</span></div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {trainings.map((t) => (
