@@ -8,6 +8,8 @@ import TrainingCollection from './pages/TrainingCollection'
 import MyTrainings from './pages/MyTrainings'
 import Stats from './pages/Stats'
 import Profile from './pages/Profile'
+import SignatureBook from './pages/SignatureBook'
+import SignatureBookDetail from './pages/SignatureBookDetail'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -81,6 +83,22 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN']}>
               <Stats />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/signature-book"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <SignatureBook />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/signature-book/:trainingId"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <SignatureBookDetail />
             </ProtectedRoute>
           }
         />

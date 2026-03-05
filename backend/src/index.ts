@@ -12,6 +12,7 @@ import trainingRoutes from './routes/trainings'
 import participantRoutes from './routes/participants'
 import statsRoutes from './routes/stats'
 import reminderRoutes from './routes/reminders'
+import signatureRoutes from './routes/signatures'
 
 // 리마인더 서비스 초기화 (스케줄러 시작)
 import './services/reminder'
@@ -65,6 +66,7 @@ app.use('/api/trainings', trainingRoutes)
 app.use('/api/participants', participantRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/reminders', reminderRoutes)
+app.use('/api/signatures', signatureRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => {

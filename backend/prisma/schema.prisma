@@ -28,6 +28,7 @@ model User {
   // Relations
   trainingParticipants TrainingParticipant[]
   reminders           TrainingReminder[]
+  signatures          TrainingSignature[]
 
   @@map("users")
 }
@@ -52,6 +53,7 @@ model Training {
   // Relations
   participants TrainingParticipant[]
   reminders    TrainingReminder[]
+  signatures   TrainingSignature[]
 
   @@map("trainings")
 }
@@ -72,6 +74,22 @@ model TrainingParticipant {
 
   @@unique([trainingId, userId])
   @@map("training_participants")
+}
+
+model TrainingSignature {
+  id             String   @id @default(uuid())
+  trainingId     String   @map("training_id")
+  userId         String   @map("user_id")
+  signatureImage String   @map("signature_image") // base64 PNG
+  signedAt       DateTime @default(now()) @map("signed_at")
+  ipAddress      String?  @map("ip_address")
+
+  // Relations
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingId, userId])
+  @@map("training_signatures")
 }
 
 model TrainingReminder {

@@ -313,3 +313,47 @@ export const cancelCompletion = async (req: Request, res: Response) => {
   }
 }
 
+
+// 참여자 개별 추가
+export const addParticipant = async (req: Request, res: Response) => {
+  try {
+    const { trainingId } = req.params
+    const { userId } = req.body as { userId?: string }
+
+    if (!userId) return res.status(400).json({ error: 'userId가 필요합니다.' })
+
+    const training = await prisma.training.findUnique({ where: { id: trainingId } })
+    if (!training) return res.status(404).json({ error: '연수를 찾을 수 없습니다.' })
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+
+    const participant = await prisma.trainingParticipant.upsert({
+      where: { trainingId_userId: { trainingId, userId } },
+      create: { trainingId, userId, status: 'pending' },
+      update: {},
+      include: { user: { select: { id: true, name: true, email: true, userType: true } } }
+    })
+
+    res.json(participant)
+  } catch (error) {
+    console.error('Add participant error:', error)
+    res.status(500).json({ error: '참여자 추가 중 오류가 발생했습니다.' })
+  }
+}
+
+// 참여자 개별 제거
+export const removeParticipant = async (req: Request, res: Response) => {
+  try {
+    const { trainingId, userId } = req.params
+
+    await prisma.trainingParticipant.deleteMany({
+      where: { trainingId, userId }
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Remove participant error:', error)
+    res.status(500).json({ error: '참여자 제거 중 오류가 발생했습니다.' })
+  }
+}

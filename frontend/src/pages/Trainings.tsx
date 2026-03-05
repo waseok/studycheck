@@ -4,7 +4,13 @@ import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getTrainings, createTraining, updateTraining, deleteTraining } from '../api/trainings'
 import { sendIncompleteReminders } from '../api/reminders'
-import { Training } from '../types'
+import { Training, User } from '../types'
+import apiClient from '../api/client'
+
+interface TrainingItem {
+  content: string
+  manager: string
+}
 
 const Trainings = () => {
   const navigate = useNavigate()
@@ -27,6 +33,29 @@ const Trainings = () => {
     deadline: ''
   })
 
+  // 참여자 관리 관련 상태
+  const [showParticipantModal, setShowParticipantModal] = useState(false)
+  const [participantTraining, setParticipantTraining] = useState<Training | null>(null)
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [participantIds, setParticipantIds] = useState<Set<string>>(new Set())
+  const [participantLoading, setParticipantLoading] = useState(false)
+  const [participantSearch, setParticipantSearch] = useState('')
+
+  // 연수등록부 만들기 관련 상태
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [registerFormData, setRegisterFormData] = useState({
+    name: '',
+    cycle: '',
+    hours: '',
+    targetUsers: [] as string[],
+    implementationDate: '',
+    department: '',
+    deadline: '',
+  })
+  const [trainingItems, setTrainingItems] = useState<TrainingItem[]>([
+    { content: '', manager: '' }
+  ])
+
   const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
 
   useEffect(() => {
@@ -42,6 +71,69 @@ const Trainings = () => {
       console.error('연수 목록 조회 오류:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 사용자 정렬 함수: 관리자 → 교원(학년/반순) → 교원(학년반없음) → 유치원 → 행정실
+  const sortUsers = (users: User[]): User[] => {
+    const typeOrder = (u: User): number => {
+      if (u.role === 'SUPER_ADMIN' || u.role === 'TRAINING_ADMIN') return 0
+      const t = u.userType
+      if (t === '교원' || t === '기간제교사') {
+        return (u.grade || u.class) ? 1 : 2
+      }
+      if (t === '유치원') return 3
+      return 4 // 직원, 공무직, 교육공무직, 행정실 등
+    }
+    return [...users].sort((a, b) => {
+      const oa = typeOrder(a), ob = typeOrder(b)
+      if (oa !== ob) return oa - ob
+      // 교원 학년/반 순
+      if (oa === 1) {
+        const ga = parseInt(a.grade || '99') || 99
+        const gb = parseInt(b.grade || '99') || 99
+        if (ga !== gb) return ga - gb
+        const ca = parseInt(a.class || '99') || 99
+        const cb = parseInt(b.class || '99') || 99
+        if (ca !== cb) return ca - cb
+      }
+      return a.name.localeCompare(b.name, 'ko')
+    })
+  }
+
+  const handleOpenParticipantModal = async (training: Training) => {
+    setParticipantTraining(training)
+    setParticipantSearch('')
+    setShowParticipantModal(true)
+    setParticipantLoading(true)
+    try {
+      const [usersRes, participantsRes] = await Promise.all([
+        apiClient.get<User[]>('/users'),
+        apiClient.get<{ userId: string }[]>(`/participants/training/${training.id}`)
+      ])
+      setAllUsers(sortUsers(usersRes.data))
+      setParticipantIds(new Set(participantsRes.data.map((p: any) => p.userId)))
+    } catch {
+      alert('데이터를 불러오지 못했습니다.')
+      setShowParticipantModal(false)
+    } finally {
+      setParticipantLoading(false)
+    }
+  }
+
+  const handleToggleParticipant = async (userId: string, isIn: boolean) => {
+    if (!participantTraining) return
+    try {
+      if (isIn) {
+        await apiClient.delete(`/participants/training/${participantTraining.id}/user/${userId}`)
+        setParticipantIds(prev => { const s = new Set(prev); s.delete(userId); return s })
+      } else {
+        await apiClient.post(`/participants/training/${participantTraining.id}/add`, { userId })
+        setParticipantIds(prev => new Set([...prev, userId]))
+      }
+      fetchTrainings()
+    } catch {
+      alert('변경 중 오류가 발생했습니다.')
     }
   }
 
@@ -119,6 +211,75 @@ const Trainings = () => {
     }
   }
 
+  // 연수등록부 만들기 핸들러
+  const handleOpenRegisterModal = () => {
+    setRegisterFormData({
+      name: '',
+      cycle: '',
+      hours: '',
+      targetUsers: [],
+      implementationDate: '',
+      department: '',
+      deadline: '',
+    })
+    setTrainingItems([{ content: '', manager: '' }])
+    setShowRegisterModal(true)
+  }
+
+  const handleRegisterTargetToggle = (userType: string) => {
+    setRegisterFormData({
+      ...registerFormData,
+      targetUsers: registerFormData.targetUsers.includes(userType)
+        ? registerFormData.targetUsers.filter(t => t !== userType)
+        : [...registerFormData.targetUsers, userType]
+    })
+  }
+
+  const handleAddTrainingItem = () => {
+    setTrainingItems([...trainingItems, { content: '', manager: '' }])
+  }
+
+  const handleRemoveTrainingItem = (index: number) => {
+    if (trainingItems.length === 1) return
+    setTrainingItems(trainingItems.filter((_, i) => i !== index))
+  }
+
+  const handleTrainingItemChange = (index: number, field: 'content' | 'manager', value: string) => {
+    const updated = trainingItems.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    )
+    setTrainingItems(updated)
+  }
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const validItems = trainingItems.filter(item => item.content.trim() || item.manager.trim())
+    if (validItems.length === 0) {
+      alert('연수 내용을 최소 1개 이상 입력해주세요.')
+      return
+    }
+    const firstManager = validItems[0]?.manager || '담당자'
+    try {
+      await createTraining({
+        name: registerFormData.name,
+        registrationBook: JSON.stringify(validItems),
+        cycle: registerFormData.cycle,
+        targetUsers: registerFormData.targetUsers,
+        hours: registerFormData.hours,
+        implementationDate: registerFormData.implementationDate,
+        department: registerFormData.department,
+        manager: firstManager,
+        method: '',
+        methodLink: '',
+        deadline: registerFormData.deadline,
+      })
+      setShowRegisterModal(false)
+      fetchTrainings()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
+    }
+  }
+
   const handleExportToExcel = () => {
     if (trainings.length === 0) {
       alert('다운로드할 연수 목록이 없습니다.')
@@ -168,6 +329,12 @@ const Trainings = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               연수 목록 다운로드
+            </button>
+            <button
+              onClick={handleOpenRegisterModal}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center gap-2"
+            >
+              📋 연수등록부 만들기
             </button>
             <button
               onClick={handleCreate}
@@ -236,6 +403,13 @@ const Trainings = () => {
                         className="text-indigo-600 hover:text-indigo-900"
                       >
                         취합
+                      </button>
+                      <button
+                        onClick={() => handleOpenParticipantModal(training)}
+                        className="text-green-600 hover:text-green-900"
+                        title="참여자 추가/제거"
+                      >
+                        👥 참여자
                       </button>
                       <button
                         onClick={async () => {
@@ -416,6 +590,249 @@ const Trainings = () => {
           </div>
         )}
       </div>
+
+      {/* 연수등록부 만들기 모달 */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full my-8">
+            <h2 className="text-xl font-bold mb-1">📋 연수등록부 만들기</h2>
+            <p className="text-sm text-gray-500 mb-4">연수 내용과 담당자를 여러 개 입력할 수 있습니다.</p>
+            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">연수명 *</label>
+                <input
+                  type="text"
+                  required
+                  value={registerFormData.name}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
+                  placeholder="예: 2024년 2월 직무연수"
+                  className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">실시일</label>
+                  <input
+                    type="text"
+                    value={registerFormData.implementationDate}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, implementationDate: e.target.value })}
+                    placeholder="예: 2024. 2. 20."
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">이수시간</label>
+                  <input
+                    type="text"
+                    value={registerFormData.hours}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, hours: e.target.value })}
+                    placeholder="예: 2시간"
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">업무부서</label>
+                  <input
+                    type="text"
+                    value={registerFormData.department}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, department: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">이수 기한</label>
+                  <input
+                    type="date"
+                    value={registerFormData.deadline}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, deadline: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">대상자 범위 *</label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {userTypes.map((type) => (
+                    <label key={type} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={registerFormData.targetUsers.includes(type)}
+                        onChange={() => handleRegisterTargetToggle(type)}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 연수 내용 & 담당자 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">연수 내용 및 담당자 *</label>
+                  <button
+                    type="button"
+                    onClick={handleAddTrainingItem}
+                    className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                  >
+                    + 항목 추가
+                  </button>
+                </div>
+                <table className="w-full text-sm border border-gray-300 rounded" style={{ borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-300 px-2 py-1 text-center w-8">순번</th>
+                      <th className="border border-gray-300 px-2 py-1 text-left">연수 내용</th>
+                      <th className="border border-gray-300 px-2 py-1 text-center w-28">담당자</th>
+                      <th className="border border-gray-300 px-2 py-1 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trainingItems.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="border border-gray-300 px-2 py-1 text-center text-gray-500">{idx + 1}</td>
+                        <td className="border border-gray-300 px-1 py-1">
+                          <input
+                            type="text"
+                            value={item.content}
+                            onChange={(e) => handleTrainingItemChange(idx, 'content', e.target.value)}
+                            placeholder="연수 내용 입력"
+                            className="w-full px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-purple-400 rounded text-sm"
+                          />
+                        </td>
+                        <td className="border border-gray-300 px-1 py-1">
+                          <input
+                            type="text"
+                            value={item.manager}
+                            onChange={(e) => handleTrainingItemChange(idx, 'manager', e.target.value)}
+                            placeholder="담당자"
+                            className="w-full px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-purple-400 rounded text-sm text-center"
+                          />
+                        </td>
+                        <td className="border border-gray-300 px-1 py-1 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTrainingItem(idx)}
+                            disabled={trainingItems.length === 1}
+                            className="text-red-400 hover:text-red-600 disabled:opacity-30 text-xs"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                >
+                  저장
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* 참여자 관리 모달 */}
+      {showParticipantModal && participantTraining && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b">
+              <h2 className="text-lg font-bold text-gray-900">👥 참여자 관리</h2>
+              <p className="text-sm text-gray-500 mt-0.5">{participantTraining.name}</p>
+            </div>
+
+            <div className="px-5 pt-3">
+              <input
+                type="text"
+                placeholder="이름 검색..."
+                value={participantSearch}
+                onChange={e => setParticipantSearch(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                참여자 {participantIds.size}명 / 전체 {allUsers.length}명
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
+              {participantLoading ? (
+                <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+              ) : (() => {
+                const filtered = allUsers.filter(u =>
+                  u.name.includes(participantSearch) ||
+                  u.userType.includes(participantSearch) ||
+                  (u.grade && u.grade.includes(participantSearch))
+                )
+
+                // 그룹 구분
+                const groups: { label: string; users: User[] }[] = [
+                  { label: '🔑 관리자', users: filtered.filter(u => u.role === 'SUPER_ADMIN' || u.role === 'TRAINING_ADMIN') },
+                  { label: '🏫 교원 (학급 있음)', users: filtered.filter(u => (u.userType === '교원' || u.userType === '기간제교사') && (u.grade || u.class)) },
+                  { label: '📚 교원 (학급 없음)', users: filtered.filter(u => (u.userType === '교원' || u.userType === '기간제교사') && !u.grade && !u.class) },
+                  { label: '🌸 유치원', users: filtered.filter(u => u.userType === '유치원') },
+                  { label: '🏢 행정실/기타', users: filtered.filter(u => !['교원', '기간제교사', '유치원'].includes(u.userType) && u.role !== 'SUPER_ADMIN' && u.role !== 'TRAINING_ADMIN') },
+                ]
+
+                return groups.map(g => g.users.length > 0 && (
+                  <div key={g.label} className="mb-3">
+                    <div className="text-xs font-semibold text-gray-400 uppercase mb-1 px-1">{g.label}</div>
+                    {g.users.map(u => {
+                      const isIn = participantIds.has(u.id)
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => handleToggleParticipant(u.id, isIn)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-all ${
+                            isIn ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50 border border-transparent'
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded flex items-center justify-center text-xs flex-shrink-0 ${
+                            isIn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            {isIn ? '✓' : ''}
+                          </span>
+                          <span className="font-medium text-gray-900">{u.name}</span>
+                          <span className="text-gray-400 text-xs">
+                            {u.grade && u.class ? `${u.grade}학년 ${u.class}반` : u.grade ? `${u.grade}학년` : ''}
+                            {u.position ? ` · ${u.position}` : ''}
+                            {' '}{u.userType}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))
+              })()}
+            </div>
+
+            <div className="p-5 border-t">
+              <button
+                onClick={() => setShowParticipantModal(false)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

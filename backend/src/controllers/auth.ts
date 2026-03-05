@@ -142,12 +142,20 @@ export const loginPin = async (req: Request, res: Response) => {
       return res.status(401).json({ error: '잘못된 PIN입니다.' })
     }
 
+    // PIN 인증 성공 = PIN이 설정되어 있음, mustSetPin은 항상 false
+    if (user.mustSetPin) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { mustSetPin: false } as any
+      })
+    }
+
     // 역할 결정
     const role: AppRole = (user.role as AppRole) || (user.isAdmin ? 'SUPER_ADMIN' : 'USER')
 
     // 토큰 발급
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role, isAdmin: user.isAdmin, mustSetPin: user.mustSetPin, loginTime: Date.now() },
+      { userId: user.id, email: user.email, role, isAdmin: user.isAdmin, mustSetPin: false, loginTime: Date.now() },
       JWT_SECRET,
       { expiresIn: '24h' }
     )
@@ -157,7 +165,7 @@ export const loginPin = async (req: Request, res: Response) => {
       token,
       role,
       isAdmin: user.isAdmin,
-      mustSetPin: user.mustSetPin,
+      mustSetPin: false,
       message: '로그인되었습니다.'
     })
   } catch (error) {
@@ -268,6 +276,12 @@ export const register = async (req: Request, res: Response) => {
         mustSetPin: false,
         pinHash,
       } as any
+    })
+
+    // mustSetPin: false 명시적 보장 (직접 가입자는 PIN이 이미 설정됨)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { mustSetPin: false } as any
     })
 
     res.json({
