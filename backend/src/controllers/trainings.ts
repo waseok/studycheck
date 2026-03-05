@@ -267,3 +267,23 @@ export const deleteTraining = async (req: Request, res: Response) => {
   }
 }
 
+
+export const completeTraining = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { isCompleted } = req.body as { isCompleted?: boolean }
+
+    const training = await prisma.training.update({
+      where: { id },
+      data: {
+        isCompleted: isCompleted !== false,
+        completedAt: isCompleted !== false ? new Date() : null
+      } as any
+    })
+
+    res.json(training)
+  } catch (error) {
+    console.error('Complete training error:', error)
+    res.status(500).json({ error: '연수 완료 처리 중 오류가 발생했습니다.' })
+  }
+}

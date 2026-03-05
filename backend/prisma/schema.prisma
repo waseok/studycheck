@@ -47,6 +47,8 @@ model Training {
   method           String?  // 연수자료 및 방법
   methodLink       String?  @map("method_link") // 연수자료 링크
   deadline         DateTime? // 이수 종료 기간
+  isCompleted      Boolean  @default(false) @map("is_completed") // 취합 완료 여부
+  completedAt      DateTime? @map("completed_at") // 취합 완료 시각
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
