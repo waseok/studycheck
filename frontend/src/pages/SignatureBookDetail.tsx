@@ -1,0 +1,365 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import Layout from '../components/Layout'
+import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
+import { getSignatureBook, saveSignature, deleteSignature, SignatureBookData, SignatureParticipant } from '../api/signatures'
+
+const SignatureBookDetail = () => {
+  const { trainingId } = useParams<{ trainingId: string }>()
+  const navigate = useNavigate()
+  const [data, setData] = useState<SignatureBookData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [signingUserId, setSigningUserId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  const printRef = useRef<HTMLDivElement>(null)
+  const signaturePadRef = useRef<SignaturePadRef>(null)
+
+  const currentUserId = (() => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userId || null
+    } catch {
+      return null
+    }
+  })()
+
+  const role = localStorage.getItem('role') as string | null
+  const isAdmin = role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN'
+
+  const fetchData = useCallback(async () => {
+    if (!trainingId) return
+    try {
+      const result = await getSignatureBook(trainingId)
+      setData(result)
+    } catch {
+      setError('등록부를 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [trainingId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleSign = async () => {
+    if (!signaturePadRef.current || !trainingId || !signingUserId) return
+    if (signaturePadRef.current.isEmpty()) {
+      alert('서명을 입력해주세요.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const imageData = signaturePadRef.current.toDataURL()
+      await saveSignature(trainingId, imageData)
+      setSigningUserId(null)
+      await fetchData()
+    } catch (err: any) {
+      alert(err.response?.data?.error || '서명 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (userId: string) => {
+    if (!trainingId) return
+    try {
+      await deleteSignature(trainingId, userId)
+      setDeleteConfirm(null)
+      await fetchData()
+    } catch {
+      alert('서명 삭제에 실패했습니다.')
+    }
+  }
+
+  const formatAffiliation = (p: SignatureParticipant) => {
+    if (p.grade && p.class) return `${p.grade}학년 ${p.class}반`
+    if (p.grade) return `${p.grade}학년`
+    return p.userType
+  }
+
+  const exportPNG = async () => {
+    if (!printRef.current || !data) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      })
+      const link = document.createElement('a')
+      link.download = `${data.training.name}_등록부.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch {
+      alert('PNG 내보내기에 실패했습니다.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const exportPDF = async () => {
+    if (!printRef.current || !data) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`${data.training.name}_등록부.pdf`)
+    } catch {
+      alert('PDF 내보내기에 실패했습니다.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const myParticipant = data?.participants.find(p => p.userId === currentUserId)
+  const signedCount = data?.participants.filter(p => p.signature).length ?? 0
+  const totalCount = data?.participants.length ?? 0
+
+  return (
+    <Layout>
+      <div className="px-4 max-w-5xl mx-auto">
+        {/* 상단 버튼 */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <button
+            onClick={() => navigate('/dashboard/signature-book')}
+            className="text-gray-600 hover:text-gray-900 font-medium text-sm flex items-center gap-1"
+          >
+            ← 목록
+          </button>
+          <div className="flex-1" />
+          {data && (
+            <>
+              <button
+                onClick={exportPNG}
+                disabled={exporting}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              >
+                🖼️ PNG 저장
+              </button>
+              <button
+                onClick={exportPDF}
+                disabled={exporting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+              >
+                📄 PDF 저장
+              </button>
+            </>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">불러오는 중...</div>
+        ) : data ? (
+          <>
+            {/* 서명 현황 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex items-center gap-4">
+              <span className="text-blue-800 font-medium">서명 현황</span>
+              <span className="text-blue-700">{signedCount} / {totalCount}명 완료</span>
+              {myParticipant && !myParticipant.signature && (
+                <button
+                  onClick={() => setSigningUserId(currentUserId)}
+                  className="ml-auto px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  ✍️ 내 서명하기
+                </button>
+              )}
+              {myParticipant?.signature && (
+                <span className="ml-auto text-green-700 font-medium text-sm">✅ 서명 완료</span>
+              )}
+            </div>
+
+            {/* 연수등록부 (출력 영역) */}
+            <div ref={printRef} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              {/* 제목 */}
+              <h1 className="text-2xl font-bold text-center text-gray-900 mb-4">연수등록부</h1>
+
+              {/* 연수 정보 */}
+              <table className="w-full mb-5 text-sm border border-gray-400" style={{ borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold w-24">연수명</th>
+                    <td className="border border-gray-400 px-3 py-2 font-medium" colSpan={3}>{data.training.name}</td>
+                  </tr>
+                  <tr>
+                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">실시일</th>
+                    <td className="border border-gray-400 px-3 py-2">{data.training.implementationDate || '-'}</td>
+                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold w-20">이수시간</th>
+                    <td className="border border-gray-400 px-3 py-2">{data.training.hours || '-'}</td>
+                  </tr>
+                  <tr>
+                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">업무부서</th>
+                    <td className="border border-gray-400 px-3 py-2">{data.training.department || '-'}</td>
+                    <th className="bg-gray-100 border border-gray-400 px-3 py-2 text-left font-semibold">담당자</th>
+                    <td className="border border-gray-400 px-3 py-2">{data.training.manager}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* 서명 테이블 */}
+              <table className="w-full text-sm border border-gray-400" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-400 px-2 py-2 text-center w-10">순번</th>
+                    <th className="border border-gray-400 px-2 py-2 text-center w-28">소속</th>
+                    <th className="border border-gray-400 px-2 py-2 text-center w-24">직위</th>
+                    <th className="border border-gray-400 px-2 py-2 text-center w-20">성명</th>
+                    <th className="border border-gray-400 px-2 py-2 text-center">서명</th>
+                    {isAdmin && (
+                      <th className="border border-gray-400 px-2 py-2 text-center w-16 no-print">관리</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.participants.map((p, idx) => (
+                    <tr key={p.userId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border border-gray-400 px-2 py-1 text-center text-gray-600">{idx + 1}</td>
+                      <td className="border border-gray-400 px-2 py-1 text-center">{formatAffiliation(p)}</td>
+                      <td className="border border-gray-400 px-2 py-1 text-center">{p.position || p.userType}</td>
+                      <td className="border border-gray-400 px-2 py-1 text-center font-medium">{p.name}</td>
+                      <td
+                        className="border border-gray-400 px-1 py-1 text-center"
+                        style={{ minHeight: '56px', height: '56px' }}
+                      >
+                        {p.signature ? (
+                          <img
+                            src={p.signature.signatureImage}
+                            alt="서명"
+                            className="max-h-12 mx-auto object-contain"
+                          />
+                        ) : p.userId === currentUserId ? (
+                          <button
+                            onClick={() => setSigningUserId(p.userId)}
+                            className="text-xs text-blue-600 hover:underline no-print"
+                          >
+                            서명하기
+                          </button>
+                        ) : (
+                          <span className="text-gray-300 text-xs">미서명</span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td className="border border-gray-400 px-1 py-1 text-center no-print">
+                          {p.signature && (
+                            <button
+                              onClick={() => setDeleteConfirm(p.userId)}
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              삭제
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* 하단 확인란 */}
+              <div className="mt-4 flex justify-end">
+                <table className="text-sm border border-gray-400" style={{ borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <th className="bg-gray-100 border border-gray-400 px-4 py-2 font-semibold">총 인원</th>
+                      <td className="border border-gray-400 px-6 py-2 text-center">{totalCount}명</td>
+                      <th className="bg-gray-100 border border-gray-400 px-4 py-2 font-semibold">서명 완료</th>
+                      <td className="border border-gray-400 px-6 py-2 text-center">{signedCount}명</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {/* 서명 모달 */}
+      {signingUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">전자서명</h2>
+            <p className="text-sm text-gray-500 mb-4">아래 공간에 서명해 주세요. 마우스나 손가락으로 서명하세요.</p>
+            <SignaturePad ref={signaturePadRef} />
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => signaturePadRef.current?.clear()}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                지우기
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSigningUserId(null) }}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSign}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+              >
+                {saving ? '저장 중...' : '서명 완료'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 서명 삭제 확인 모달 */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">서명 삭제</h3>
+            <p className="text-gray-600 mb-4">이 서명을 삭제하시겠습니까? 삭제하면 다시 서명해야 합니다.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
+  )
+}
+
+export default SignatureBookDetail

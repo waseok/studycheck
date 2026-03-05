@@ -51,8 +51,8 @@ const Layout = ({ children }: LayoutProps) => {
                   <Link
                     to="/dashboard/trainings"
                     className={`flex items-center px-5 py-3 mx-1 rounded-xl font-semibold transition-all ${
-                      isActive('/dashboard/trainings') 
-                        ? 'bg-blue-500 text-white shadow-md' 
+                      isActive('/dashboard/trainings')
+                        ? 'bg-blue-500 text-white shadow-md'
                         : 'text-blue-700 hover:bg-blue-100'
                     }`}
                   >
@@ -61,8 +61,8 @@ const Layout = ({ children }: LayoutProps) => {
                   <Link
                     to="/dashboard/stats"
                     className={`flex items-center px-5 py-3 mx-1 rounded-xl font-semibold transition-all ${
-                      isActive('/dashboard/stats') 
-                        ? 'bg-blue-500 text-white shadow-md' 
+                      isActive('/dashboard/stats')
+                        ? 'bg-blue-500 text-white shadow-md'
                         : 'text-blue-700 hover:bg-blue-100'
                     }`}
                   >
@@ -70,6 +70,17 @@ const Layout = ({ children }: LayoutProps) => {
                   </Link>
                 </>
               )}
+
+              <Link
+                to="/dashboard/signature-book"
+                className={`flex items-center px-5 py-3 mx-1 rounded-xl font-semibold transition-all ${
+                  location.pathname.startsWith('/dashboard/signature-book')
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                ✍️ 연수등록부
+              </Link>
 
               <Link
                 to="/dashboard/my-trainings"
