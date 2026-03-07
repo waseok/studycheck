@@ -51,6 +51,24 @@ const Dashboard = () => {
   }
 
 
+  // 나의 연수 완료 통계
+  const myCompletedCount = myTrainings.filter(p => p.status === 'completed').length
+  const myTotalCount = myTrainings.length
+  const myCompletionRate = myTotalCount > 0 ? (myCompletedCount / myTotalCount) * 100 : 0
+
+  // 미이수자 알림: 연수별로 그룹화
+  const trainingIncompleteMap = incompleteList.reduce((acc: Record<string, {name: string, count: number, id: string}>, item) => {
+    const trainingId = item.training?.id
+    const trainingName = item.training?.name
+    if (!trainingId || !trainingName) return acc
+    if (!acc[trainingId]) {
+      acc[trainingId] = { name: trainingName, count: 0, id: trainingId }
+    }
+    acc[trainingId].count++
+    return acc
+  }, {})
+  const trainingIncompleteList = Object.values(trainingIncompleteMap)
+
   // 연수별 통계 계산
   const trainingStats = allTrainings.map(training => {
     const total = training.participants?.length || 0
@@ -100,6 +118,28 @@ const Dashboard = () => {
             </Link>
           </div>
           
+          {myTotalCount > 0 && (
+            <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-lg font-bold text-blue-800">
+                  총 {myTotalCount}개 중 <span className="text-green-600">{myCompletedCount}개</span> 완료
+                </span>
+                <span className="text-sm font-semibold text-blue-600">{myCompletionRate.toFixed(0)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div
+                  className="bg-green-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${myCompletionRate}%` }}
+                />
+              </div>
+              {myTotalCount - myCompletedCount > 0 && (
+                <p className="text-sm text-red-600 font-semibold mt-2">
+                  ⚠️ 미완료 연수 {myTotalCount - myCompletedCount}개 남음
+                </p>
+              )}
+            </div>
+          )}
+
           {myTrainings.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               참여 중인 연수가 없습니다.
@@ -261,24 +301,28 @@ const Dashboard = () => {
               )}
             </div>
 
-            {/* 미이수자 목록 */}
-            {incompleteList.length > 0 && (
+            {/* 미이수자 알림 - 연수 중심 */}
+            {trainingIncompleteList.length > 0 && (
               <div className="bg-white shadow-xl rounded-2xl p-6 border-4 border-red-200">
-                <h2 className="text-2xl font-bold text-red-800 mb-4">⚠️ 미이수자 알림</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-red-800">⚠️ 미이수자 알림</h2>
+                  <Link to="/dashboard/stats" className="text-red-600 hover:text-red-800 font-semibold text-sm">
+                    전체 보기 →
+                  </Link>
+                </div>
                 <div className="space-y-2">
-                  {incompleteList.slice(0, 5).map((item) => (
-                    <div key={item.id} className="p-3 rounded-lg bg-red-50 border border-red-200">
-                      <p className="text-sm">
-                        <span className="font-semibold">{item.user?.name || '-'}</span>님의{' '}
-                        <span className="font-semibold">{item.training?.name || '-'}</span> 연수가 미완료 상태입니다.
-                      </p>
-                    </div>
+                  {trainingIncompleteList.map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/dashboard/trainings/${item.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">{item.name}</p>
+                      <span className="ml-4 flex-shrink-0 px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full">
+                        {item.count}명 미이수
+                      </span>
+                    </Link>
                   ))}
-                  {incompleteList.length > 5 && (
-                    <p className="text-sm text-gray-600 text-center mt-2">
-                      외 {incompleteList.length - 5}명의 미이수자가 있습니다.
-                    </p>
-                  )}
                 </div>
               </div>
             )}

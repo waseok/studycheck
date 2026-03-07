@@ -79,7 +79,8 @@ export const getMyTrainings = async (req: Request, res: Response) => {
             deadline: true,
             targetUsers: true,
             department: true,
-            manager: true
+            manager: true,
+            registrationBook: true
           }
         },
         user: {

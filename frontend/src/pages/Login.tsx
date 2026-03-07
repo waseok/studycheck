@@ -218,7 +218,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="flex flex-col items-center">
           <img
@@ -226,8 +226,8 @@ const Login = () => {
             alt="와석초등학교 교표"
             className="w-28 h-28 object-contain"
           />
-          <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900">
-            와석초 의무연수 안내 취합 통합 플랫폼
+          <h2 className="mt-4 text-center text-2xl font-extrabold text-gray-900 leading-snug">
+            와석초 의무연수 안내<br />취합 통합 플랫폼
           </h2>
         </div>
 
@@ -236,7 +236,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('pin'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'pin'
                 ? 'border-b-2 border-indigo-500 text-indigo-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -247,7 +247,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('initial'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'initial'
                 ? 'border-b-2 border-indigo-500 text-indigo-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -258,7 +258,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('admin'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'admin'
                 ? 'border-b-2 border-red-500 text-red-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -454,6 +454,17 @@ const Login = () => {
             >
               회원가입
             </button>
+          </div>
+        </div>
+
+        {/* 연구학교 안내 */}
+        <div className="mt-4 text-center border-t border-gray-200 pt-4">
+          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
+            <span className="text-xl">🏫</span>
+            <div className="text-left">
+              <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">학교업무개선 연구학교 (2025~2027)</p>
+              <p className="text-sm font-semibold text-indigo-900">연구 결과물 · 파주 와석초등학교</p>
+            </div>
           </div>
         </div>
       </div>
