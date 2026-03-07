@@ -18,6 +18,7 @@ const TrainingCollection = () => {
   const [sending, setSending] = useState(false)
   const [sortBy, setSortBy] = useState<'default' | 'incomplete'>('default')
   const [filterIncomplete, setFilterIncomplete] = useState(false)
+  const [showCompletionHelp, setShowCompletionHelp] = useState(false)
   const role = getRole()
   const adminUser = isAdmin() || role === 'TRAINING_ADMIN'
 
@@ -360,8 +361,27 @@ const TrainingCollection = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     성함
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이수번호
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
+                    <div className="flex items-center gap-1">
+                      이수번호
+                      <button
+                        type="button"
+                        onClick={() => setShowCompletionHelp(!showCompletionHelp)}
+                        className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-bold hover:bg-blue-200 flex items-center justify-center flex-shrink-0"
+                        title="이수번호 안내"
+                      >
+                        ?
+                      </button>
+                    </div>
+                    {showCompletionHelp && (
+                      <div className="absolute z-10 mt-1 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg shadow-lg text-xs text-gray-700 normal-case font-normal w-64">
+                        <p className="font-bold text-yellow-800 mb-1">📋 이수번호 찾는 방법</p>
+                        <p>1. 연수 플랫폼(나이스, 티처빌 등)에 로그인</p>
+                        <p>2. "나의 학습방" 또는 "학습이력" 메뉴로 이동</p>
+                        <p>3. 해당 연수의 이수증에서 <strong>이수번호</strong>를 확인</p>
+                        <p className="mt-1 text-yellow-700">* 이수증 발급 후 번호를 입력해주세요</p>
+                      </div>
+                    )}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     상태
