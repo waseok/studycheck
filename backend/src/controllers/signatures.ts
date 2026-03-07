@@ -80,21 +80,50 @@ export const saveSignature = async (req: Request, res: Response) => {
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 
-    const signature = await prisma.trainingSignature.upsert({
-      where: { trainingId_userId: { trainingId, userId } },
-      create: { trainingId, userId, signatureImage, ipAddress },
-      update: { signatureImage, signedAt: new Date(), ipAddress }
-    })
-
-    // 서명 = 연수 이수 완료 처리
-    await prisma.trainingParticipant.update({
-      where: { trainingId_userId: { trainingId, userId } },
-      data: { status: 'completed', completedAt: new Date() }
-    })
+    const [signature] = await prisma.$transaction([
+      prisma.trainingSignature.upsert({
+        where: { trainingId_userId: { trainingId, userId } },
+        create: { trainingId, userId, signatureImage, ipAddress },
+        update: { signatureImage, signedAt: new Date(), ipAddress }
+      }),
+      prisma.trainingParticipant.updateMany({
+        where: { trainingId, userId },
+        data: { status: 'completed', completedAt: new Date() }
+      })
+    ])
 
     res.json({ success: true, signature })
   } catch (error) {
     console.error('saveSignature error:', error)
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' })
+  }
+}
+
+// 서명된 참여자 상태 일괄 동기화 (관리자) - 서명했지만 pending 상태인 경우 수정
+export const syncSignatureStatus = async (req: Request, res: Response) => {
+  try {
+    const { trainingId } = req.params
+
+    const signatures = await prisma.trainingSignature.findMany({
+      where: { trainingId }
+    })
+
+    if (signatures.length === 0) {
+      return res.json({ updated: 0 })
+    }
+
+    const result = await prisma.trainingParticipant.updateMany({
+      where: {
+        trainingId,
+        userId: { in: signatures.map((s: any) => s.userId) },
+        status: 'pending'
+      },
+      data: { status: 'completed', completedAt: new Date() }
+    })
+
+    res.json({ updated: result.count })
+  } catch (error) {
+    console.error('syncSignatureStatus error:', error)
     res.status(500).json({ error: '서버 오류가 발생했습니다.' })
   }
 }
@@ -104,9 +133,13 @@ export const deleteSignature = async (req: Request, res: Response) => {
   try {
     const { trainingId, userId } = req.params
 
-    await prisma.trainingSignature.deleteMany({
-      where: { trainingId, userId }
-    })
+    await prisma.$transaction([
+      prisma.trainingSignature.deleteMany({ where: { trainingId, userId } }),
+      prisma.trainingParticipant.updateMany({
+        where: { trainingId, userId },
+        data: { status: 'pending', completedAt: null }
+      })
+    ])
 
     res.json({ success: true })
   } catch (error) {

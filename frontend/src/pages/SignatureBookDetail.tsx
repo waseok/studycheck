@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import Layout from '../components/Layout'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
-import { getSignatureBook, saveSignature, deleteSignature, SignatureBookData, SignatureParticipant } from '../api/signatures'
+import { getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, SignatureBookData, SignatureParticipant } from '../api/signatures'
 
 const SignatureBookDetail = () => {
   const { trainingId } = useParams<{ trainingId: string }>()
@@ -69,6 +69,17 @@ const SignatureBookDetail = () => {
       alert(err.response?.data?.error || '서명 저장에 실패했습니다.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSyncStatus = async () => {
+    if (!trainingId) return
+    try {
+      const result = await syncSignatureStatus(trainingId)
+      alert(`${result.updated}명의 이수 상태가 완료로 업데이트되었습니다.`)
+      await fetchData()
+    } catch {
+      alert('동기화에 실패했습니다.')
     }
   }
 
@@ -165,6 +176,15 @@ const SignatureBookDetail = () => {
           <div className="flex-1" />
           {data && (
             <>
+              {isAdmin && (
+                <button
+                  onClick={handleSyncStatus}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1"
+                  title="서명했지만 미완료 상태인 참여자를 완료로 일괄 처리"
+                >
+                  🔄 이수상태 동기화
+                </button>
+              )}
               <button
                 onClick={exportPNG}
                 disabled={exporting}
