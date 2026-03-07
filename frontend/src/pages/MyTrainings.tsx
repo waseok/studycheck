@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { getMyTrainings, updateCompletionNumber, cancelCompletion } from '../api/participants'
 import { TrainingParticipant } from '../types'
 
 const MyTrainings = () => {
+  const navigate = useNavigate()
   const [participants, setParticipants] = useState<TrainingParticipant[]>([])
   const [loading, setLoading] = useState(false)
   const [editingCompletionNumbers, setEditingCompletionNumbers] = useState<Record<string, string>>({})
@@ -131,9 +133,17 @@ const MyTrainings = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-                          <span className="text-lg">✍️</span>
-                          <span className="font-medium">연수등록부에 서명하면 이수 완료됩니다</span>
+                        <div className="flex items-center justify-between gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">✍️</span>
+                            <span className="font-medium">연수등록부에 서명하면 이수 완료됩니다</span>
+                          </div>
+                          <button
+                            onClick={() => navigate(`/dashboard/signature-book/${training.id}`)}
+                            className="px-3 py-1 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 whitespace-nowrap"
+                          >
+                            서명하러 가기
+                          </button>
                         </div>
                       )}
                     </div>
