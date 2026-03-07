@@ -44,3 +44,8 @@ export const deleteSignature = async (trainingId: string, userId: string): Promi
   const response = await apiClient.delete(`/signatures/training/${trainingId}/user/${userId}`)
   return response.data
 }
+
+export const syncSignatureStatus = async (trainingId: string): Promise<{ updated: number }> => {
+  const response = await apiClient.post(`/signatures/training/${trainingId}/sync-status`)
+  return response.data
+}
