@@ -463,7 +463,7 @@ const Login = () => {
         <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
           <span className="text-xl">🏫</span>
           <div className="text-left">
-            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">2024 학교업무개선 연구학교</p>
+            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">학교업무개선 연구학교 (2025~2027)</p>
             <p className="text-sm font-semibold text-indigo-900">연구 결과물 · 파주 와석초등학교</p>
           </div>
         </div>
