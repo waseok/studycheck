@@ -218,7 +218,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="flex flex-col items-center">
           <img
@@ -236,7 +236,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('pin'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'pin'
                 ? 'border-b-2 border-indigo-500 text-indigo-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -247,7 +247,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('initial'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'initial'
                 ? 'border-b-2 border-indigo-500 text-indigo-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -258,7 +258,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() => { setActiveTab('admin'); setError('') }}
-            className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
+            className={`flex-1 py-2 px-2 text-center font-medium text-sm whitespace-nowrap ${
               activeTab === 'admin'
                 ? 'border-b-2 border-red-500 text-red-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -456,15 +456,15 @@ const Login = () => {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* 연구학교 안내 */}
-      <div className="mt-8 text-center border-t border-gray-200 pt-6">
-        <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
-          <span className="text-xl">🏫</span>
-          <div className="text-left">
-            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">학교업무개선 연구학교 (2025~2027)</p>
-            <p className="text-sm font-semibold text-indigo-900">연구 결과물 · 파주 와석초등학교</p>
+        {/* 연구학교 안내 */}
+        <div className="mt-4 text-center border-t border-gray-200 pt-4">
+          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
+            <span className="text-xl">🏫</span>
+            <div className="text-left">
+              <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">학교업무개선 연구학교 (2025~2027)</p>
+              <p className="text-sm font-semibold text-indigo-900">연구 결과물 · 파주 와석초등학교</p>
+            </div>
           </div>
         </div>
       </div>

@@ -86,6 +86,12 @@ export const saveSignature = async (req: Request, res: Response) => {
       update: { signatureImage, signedAt: new Date(), ipAddress }
     })
 
+    // 서명 = 연수 이수 완료 처리
+    await prisma.trainingParticipant.update({
+      where: { trainingId_userId: { trainingId, userId } },
+      data: { status: 'completed', completedAt: new Date() }
+    })
+
     res.json({ success: true, signature })
   } catch (error) {
     console.error('saveSignature error:', error)

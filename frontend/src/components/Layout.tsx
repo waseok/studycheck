@@ -45,20 +45,12 @@ const Layout = ({ children }: LayoutProps) => {
               )}
 
               {(role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN') && (
-                <>
-                  <Link
-                    to="/dashboard/trainings"
-                    className={`${linkBase} ${isActive('/dashboard/trainings') ? linkActive : linkInactive}`}
-                  >
-                    📖 연수 관리
-                  </Link>
-                  <Link
-                    to="/dashboard/stats"
-                    className={`${linkBase} ${isActive('/dashboard/stats') ? linkActive : linkInactive}`}
-                  >
-                    📊 통계
-                  </Link>
-                </>
+                <Link
+                  to="/dashboard/trainings"
+                  className={`${linkBase} ${isActive('/dashboard/trainings') ? linkActive : linkInactive}`}
+                >
+                  📖 연수 관리
+                </Link>
               )}
 
               <Link
@@ -74,6 +66,15 @@ const Layout = ({ children }: LayoutProps) => {
               >
                 ✏️ 내 연수
               </Link>
+
+              {(role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN') && (
+                <Link
+                  to="/dashboard/stats"
+                  className={`${linkBase} ${isActive('/dashboard/stats') ? linkActive : linkInactive}`}
+                >
+                  📊 통계
+                </Link>
+              )}
 
               <Link
                 to="/dashboard/profile"
