@@ -19,6 +19,7 @@ const TrainingCollection = () => {
   const [sortBy, setSortBy] = useState<'default' | 'incomplete'>('default')
   const [filterIncomplete, setFilterIncomplete] = useState(false)
   const [showCompletionHelp, setShowCompletionHelp] = useState(false)
+  const [isManualSort, setIsManualSort] = useState(false)
   const role = getRole()
   const adminUser = isAdmin() || role === 'TRAINING_ADMIN'
 
@@ -37,19 +38,20 @@ const TrainingCollection = () => {
       filtered = filtered.filter(p => p.status !== 'completed' || !p.completionNumber)
     }
 
-    // 교직원 유형별 순서: 교장/교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외
+    // 교직원 유형별 순서: 교장 > 교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외
     const getTypeOrder = (user: any): number => {
       const userType = user?.userType || ''
       const position = user?.position || ''
       const isTeacher = userType === '교원' || userType === '기간제교사'
       if (isTeacher) {
-        if (position === '교장' || position === '교감') return 0
-        if (user?.grade && user?.class) return 1  // 학급 담임
-        return 2  // 교과 전담
+        if (position === '교장') return 0
+        if (position === '교감') return 1
+        if (user?.grade && user?.class) return 2  // 학급 담임
+        return 3  // 교과 전담
       }
-      if (userType === '유치원') return 3
-      if (['직원', '공무직', '교육공무직', '교직원'].includes(userType)) return 4
-      return 5
+      if (userType === '유치원') return 4
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(userType)) return 5
+      return 6
     }
 
     const baseSort = (a: TrainingParticipant, b: TrainingParticipant): number => {
@@ -79,7 +81,21 @@ const TrainingCollection = () => {
     }
 
     setFilteredParticipants(filtered)
+    setIsManualSort(false)
   }, [participants, sortBy, filterIncomplete])
+
+  const moveRow = (idx: number, dir: 'up' | 'down') => {
+    setFilteredParticipants(prev => {
+      const arr = [...prev]
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= arr.length) return prev
+      ;[arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]]
+      return arr
+    })
+    setIsManualSort(true)
+  }
+
+  const resetManualSort = () => setParticipants(prev => [...prev])
 
   const fetchData = async () => {
     if (!id) return
@@ -303,7 +319,7 @@ const TrainingCollection = () => {
 
           {/* 필터 및 정렬 */}
           {adminUser && (
-            <div className="mb-4 flex gap-4 items-center">
+            <div className="mb-4 flex gap-4 items-center flex-wrap">
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -316,25 +332,38 @@ const TrainingCollection = () => {
               <div className="flex gap-2">
                 <button
                   onClick={() => setSortBy('default')}
+                  disabled={isManualSort}
                   className={`px-3 py-1 text-sm rounded-md ${
-                    sortBy === 'default'
+                    sortBy === 'default' && !isManualSort
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40'
                   }`}
                 >
                   기본 정렬
                 </button>
                 <button
                   onClick={() => setSortBy('incomplete')}
+                  disabled={isManualSort}
                   className={`px-3 py-1 text-sm rounded-md ${
-                    sortBy === 'incomplete'
+                    sortBy === 'incomplete' && !isManualSort
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-40'
                   }`}
                 >
                   미이수자 우선
                 </button>
               </div>
+              {isManualSort && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-orange-600 font-medium">✏️ 수동 정렬 중</span>
+                  <button
+                    onClick={resetManualSort}
+                    className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                  >
+                    순서 초기화
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -390,6 +419,11 @@ const TrainingCollection = () => {
                       수정
                     </th>
                   )}
+                  {adminUser && (
+                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                      순서
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -397,10 +431,13 @@ const TrainingCollection = () => {
                   <ParticipantRow
                     key={participant.id}
                     index={index}
+                    totalCount={filteredParticipants.length}
                     participant={participant}
                     onUpdate={handleUpdateCompletionNumber}
                     onCancel={handleCancelCompletion}
                     isAdmin={adminUser}
+                    onMoveUp={() => moveRow(index, 'up')}
+                    onMoveDown={() => moveRow(index, 'down')}
                   />
                 ))}
               </tbody>
@@ -414,13 +451,16 @@ const TrainingCollection = () => {
 
 interface ParticipantRowProps {
   index: number
+  totalCount: number
   participant: TrainingParticipant
   onUpdate: (id: string, completionNumber: string) => void
   onCancel: (id: string) => void
   isAdmin: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
 }
 
-const ParticipantRow = ({ index, participant, onUpdate, onCancel, isAdmin }: ParticipantRowProps) => {
+const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, isAdmin, onMoveUp, onMoveDown }: ParticipantRowProps) => {
   const [editing, setEditing] = useState(false)
   const [completionNumber, setCompletionNumber] = useState(participant.completionNumber || '')
 
@@ -497,6 +537,24 @@ const ParticipantRow = ({ index, participant, onUpdate, onCancel, isAdmin }: Par
               취소
             </button>
           )}
+        </td>
+      )}
+      {isAdmin && (
+        <td className="px-2 py-4 text-center whitespace-nowrap">
+          <div className="flex flex-col gap-0.5 items-center">
+            <button
+              onClick={onMoveUp}
+              disabled={index === 0}
+              className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
+              title="위로"
+            >▲</button>
+            <button
+              onClick={onMoveDown}
+              disabled={index === totalCount - 1}
+              className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
+              title="아래로"
+            >▼</button>
+          </div>
         </td>
       )}
     </tr>

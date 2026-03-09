@@ -41,17 +41,18 @@ export const getSignatures = async (req: Request, res: Response) => {
       } : null
     }))
 
-    // 교직원 유형별 순서: 교장/교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외
+    // 교장 > 교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외 순 정렬
     const getTypeOrder = (p: { userType: string; position?: string | null; grade?: string | null; class?: string | null }): number => {
       const isTeacher = p.userType === '교원' || p.userType === '기간제교사'
       if (isTeacher) {
-        if (p.position === '교장' || p.position === '교감') return 0
-        if (p.grade && p.class) return 1  // 학급 담임
-        return 2  // 교과 전담
+        if (p.position === '교장') return 0
+        if (p.position === '교감') return 1
+        if (p.grade && p.class) return 2  // 학급 담임
+        return 3  // 교과 전담
       }
-      if (p.userType === '유치원') return 3
-      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 4
-      return 5
+      if (p.userType === '유치원') return 4
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 5
+      return 6
     }
 
     result.sort((a, b) => {
