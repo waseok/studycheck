@@ -323,6 +323,25 @@ export const deleteUser = async (req: Request, res: Response) => {
   }
 }
 
+export const bulkDeleteUsers = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: string[] }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '삭제할 사용자 ID가 필요합니다.' })
+    }
+
+    const result = await prisma.user.deleteMany({
+      where: { id: { in: ids } }
+    })
+
+    res.json({ success: true, message: `${result.count}명의 교직원이 삭제되었습니다.`, count: result.count })
+  } catch (error) {
+    console.error('Bulk delete users error:', error)
+    res.status(500).json({ error: '교직원 일괄 삭제 중 오류가 발생했습니다.' })
+  }
+}
+
 export const resetUserPin = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
