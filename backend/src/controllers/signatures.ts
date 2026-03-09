@@ -41,8 +41,23 @@ export const getSignatures = async (req: Request, res: Response) => {
       } : null
     }))
 
-    // 학년 → 반 → 이름 순 정렬
+    // 교직원 유형별 순서: 교장/교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외
+    const getTypeOrder = (p: { userType: string; position?: string | null; grade?: string | null; class?: string | null }): number => {
+      const isTeacher = p.userType === '교원' || p.userType === '기간제교사'
+      if (isTeacher) {
+        if (p.position === '교장' || p.position === '교감') return 0
+        if (p.grade && p.class) return 1  // 학급 담임
+        return 2  // 교과 전담
+      }
+      if (p.userType === '유치원') return 3
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 4
+      return 5
+    }
+
     result.sort((a, b) => {
+      const aOrder = getTypeOrder(a)
+      const bOrder = getTypeOrder(b)
+      if (aOrder !== bOrder) return aOrder - bOrder
       const gradeA = parseInt(a.grade || '99') || 99
       const gradeB = parseInt(b.grade || '99') || 99
       if (gradeA !== gradeB) return gradeA - gradeB
