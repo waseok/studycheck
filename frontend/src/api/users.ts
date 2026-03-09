@@ -31,6 +31,11 @@ export const deleteUser = async (id: string): Promise<void> => {
   await apiClient.delete(`/users/${id}`)
 }
 
+export const bulkDeleteUsers = async (ids: string[]): Promise<{ success: boolean; message: string; count: number }> => {
+  const response = await apiClient.delete<{ success: boolean; message: string; count: number }>('/users/bulk', { data: { ids } })
+  return response.data
+}
+
 export const resetPin = async (id: string): Promise<{ success: boolean; message: string }> => {
   const response = await apiClient.post<{ success: boolean; message: string }>(`/users/${id}/reset-pin`)
   return response.data

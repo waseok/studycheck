@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
-import { getUsers, createUser, updateUser, deleteUser, resetPin, bulkCreateUsers } from '../api/users'
+import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers } from '../api/users'
 import { cleanupDuplicates } from '../api/participants'
 import { isAdmin } from '../api/auth'
 import { User } from '../types'
@@ -14,6 +14,7 @@ const Users = () => {
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number; details?: string[] } | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -73,15 +74,47 @@ const Users = () => {
     setShowModal(true)
   }
 
+  const handleSelectUser = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === users.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(users.map(u => u.id)))
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
     try {
       await deleteUser(id)
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next })
       fetchUsers()
     } catch (error) {
       console.error('교직원 삭제 오류:', error)
       alert('삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 ${selectedIds.size}명의 교직원을 삭제하시겠습니까?`)) return
+
+    try {
+      await bulkDeleteUsers(Array.from(selectedIds))
+      setSelectedIds(new Set())
+      fetchUsers()
+    } catch (error) {
+      console.error('일괄 삭제 오류:', error)
+      alert('일괄 삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -255,6 +288,14 @@ const Users = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-blue-800 mb-6">👥 교직원 관리</h1>
           <div className="flex gap-2">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                🗑️ 선택 삭제 ({selectedIds.size}명)
+              </button>
+            )}
             {isAdmin() && (
               <button
                 onClick={handleCleanupDuplicates}
@@ -293,6 +334,14 @@ const Users = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={users.length > 0 && selectedIds.size === users.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
@@ -306,7 +355,15 @@ const Users = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
-                  <tr key={user.id}>
+                  <tr key={user.id} className={selectedIds.has(user.id) ? 'bg-red-50' : ''}>
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(user.id)}
+                        onChange={() => handleSelectUser(user.id)}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.userType}</td>

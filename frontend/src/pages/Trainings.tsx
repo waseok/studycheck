@@ -45,7 +45,9 @@ const Trainings = () => {
   const [participantTraining, setParticipantTraining] = useState<Training | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [participantIds, setParticipantIds] = useState<Set<string>>(new Set())
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [participantLoading, setParticipantLoading] = useState(false)
+  const [participantSaving, setParticipantSaving] = useState(false)
   const [participantSearch, setParticipantSearch] = useState('')
 
   // 연수등록부 만들기 관련 상태
@@ -121,7 +123,9 @@ const Trainings = () => {
         apiClient.get<{ userId: string }[]>(`/participants/training/${training.id}`)
       ])
       setAllUsers(sortUsers(usersRes.data))
-      setParticipantIds(new Set(participantsRes.data.map((p: any) => p.userId)))
+      const ids = new Set<string>(participantsRes.data.map((p: any) => p.userId))
+      setParticipantIds(ids)
+      setPendingIds(new Set(ids))
     } catch {
       alert('데이터를 불러오지 못했습니다.')
       setShowParticipantModal(false)
@@ -130,19 +134,34 @@ const Trainings = () => {
     }
   }
 
-  const handleToggleParticipant = async (userId: string, isIn: boolean) => {
+  const handleToggleParticipant = (userId: string) => {
+    setPendingIds(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  const handleSaveParticipants = async () => {
     if (!participantTraining) return
+    setParticipantSaving(true)
     try {
-      if (isIn) {
-        await apiClient.delete(`/participants/training/${participantTraining.id}/user/${userId}`)
-        setParticipantIds(prev => { const s = new Set(prev); s.delete(userId); return s })
-      } else {
-        await apiClient.post(`/participants/training/${participantTraining.id}/add`, { userId })
-        setParticipantIds(prev => new Set([...prev, userId]))
-      }
+      const toAdd = [...pendingIds].filter(id => !participantIds.has(id))
+      const toRemove = [...participantIds].filter(id => !pendingIds.has(id))
+
+      await Promise.all([
+        ...toAdd.map(userId => apiClient.post(`/participants/training/${participantTraining.id}/add`, { userId })),
+        ...toRemove.map(userId => apiClient.delete(`/participants/training/${participantTraining.id}/user/${userId}`))
+      ])
+
+      setParticipantIds(new Set(pendingIds))
       fetchTrainings()
+      setShowParticipantModal(false)
     } catch {
-      alert('변경 중 오류가 발생했습니다.')
+      alert('저장 중 오류가 발생했습니다.')
+    } finally {
+      setParticipantSaving(false)
     }
   }
 
@@ -941,7 +960,10 @@ const Trainings = () => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
               />
               <p className="text-xs text-gray-400 mt-1">
-                참여자 {participantIds.size}명 / 전체 {allUsers.length}명
+                선택 {pendingIds.size}명 / 전체 {allUsers.length}명
+                {pendingIds.size !== participantIds.size || [...pendingIds].some(id => !participantIds.has(id)) ? (
+                  <span className="ml-2 text-orange-500 font-medium">· 미저장 변경사항 있음</span>
+                ) : null}
               </p>
             </div>
 
@@ -967,11 +989,11 @@ const Trainings = () => {
                   <div key={g.label} className="mb-3">
                     <div className="text-xs font-semibold text-gray-400 uppercase mb-1 px-1">{g.label}</div>
                     {g.users.map(u => {
-                      const isIn = participantIds.has(u.id)
+                      const isIn = pendingIds.has(u.id)
                       return (
                         <button
                           key={u.id}
-                          onClick={() => handleToggleParticipant(u.id, isIn)}
+                          onClick={() => handleToggleParticipant(u.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-all ${
                             isIn ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50 border border-transparent'
                           }`}
@@ -995,12 +1017,19 @@ const Trainings = () => {
               })()}
             </div>
 
-            <div className="p-5 border-t">
+            <div className="p-5 border-t flex gap-2">
               <button
                 onClick={() => setShowParticipantModal(false)}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
               >
                 닫기
+              </button>
+              <button
+                onClick={handleSaveParticipants}
+                disabled={participantSaving}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {participantSaving ? '저장 중...' : `저장 (${pendingIds.size}명)`}
               </button>
             </div>
           </div>
