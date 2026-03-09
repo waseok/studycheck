@@ -32,8 +32,8 @@ const Users = () => {
   ] as const
 
   const deriveRole = (user: User): 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER' => {
-    if (user.isAdmin) return 'SUPER_ADMIN'
-    if (user.userType === '연수관리자') return 'TRAINING_ADMIN'
+    if (user.isAdmin || user.role === 'SUPER_ADMIN') return 'SUPER_ADMIN'
+    if (user.role === 'TRAINING_ADMIN') return 'TRAINING_ADMIN'
     return 'USER'
   }
 
