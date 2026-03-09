@@ -100,6 +100,30 @@ const SignatureBookDetail = () => {
     return p.userType
   }
 
+  // 교원-유치원-행정실-그 외 순 정렬
+  const sortedParticipants = [...(data?.participants ?? [])].sort((a, b) => {
+    const getOrder = (p: SignatureParticipant): number => {
+      const isTeacher = p.userType === '교원' || p.userType === '기간제교사'
+      if (isTeacher) {
+        if (p.position === '교장' || p.position === '교감') return 0
+        if (p.grade && p.class) return 1  // 학급 담임
+        return 2  // 교과 전담
+      }
+      if (p.userType === '유치원') return 3
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 4
+      return 5
+    }
+    const oa = getOrder(a), ob = getOrder(b)
+    if (oa !== ob) return oa - ob
+    const ga = parseInt(a.grade || '99') || 99
+    const gb = parseInt(b.grade || '99') || 99
+    if (ga !== gb) return ga - gb
+    const ca = parseInt(a.class || '99') || 99
+    const cb = parseInt(b.class || '99') || 99
+    if (ca !== cb) return ca - cb
+    return a.name.localeCompare(b.name, 'ko')
+  })
+
   const exportPNG = async () => {
     if (!printRef.current || !data) return
     setExporting(true)
@@ -125,21 +149,46 @@ const SignatureBookDetail = () => {
     if (!printRef.current || !data) return
     setExporting(true)
     try {
+      // 관리 버튼(no-print) 요소 임시 숨김
+      const noPrintEls = printRef.current.querySelectorAll<HTMLElement>('.no-print')
+      noPrintEls.forEach(el => { el.style.display = 'none' })
+
       const canvas = await html2canvas(printRef.current, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
       })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+
+      // 관리 버튼 복원
+      noPrintEls.forEach(el => { el.style.display = '' })
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const margin = 8
+      const pdfPageW = pdf.internal.pageSize.getWidth() - margin * 2
+      const pdfPageH = pdf.internal.pageSize.getHeight() - margin * 2
+
+      // 캔버스 px → mm 비율
+      const pxPerMm = canvas.width / pdfPageW
+      const pageHeightPx = pdfPageH * pxPerMm
+      const totalPages = Math.ceil(canvas.height / pageHeightPx)
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage()
+
+        const srcY = page * pageHeightPx
+        const srcH = Math.min(pageHeightPx, canvas.height - srcY)
+
+        const slice = document.createElement('canvas')
+        slice.width = canvas.width
+        slice.height = srcH
+        slice.getContext('2d')?.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH)
+
+        const imgData = slice.toDataURL('image/jpeg', 0.75)
+        const sliceHeightMm = srcH / pxPerMm
+        pdf.addImage(imgData, 'JPEG', margin, margin, pdfPageW, sliceHeightMm)
+      }
+
       pdf.save(`${data.training.name}_등록부.pdf`)
     } catch {
       alert('PDF 내보내기에 실패했습니다.')
@@ -149,8 +198,8 @@ const SignatureBookDetail = () => {
   }
 
   const myParticipant = data?.participants.find(p => p.userId === currentUserId)
-  const signedCount = data?.participants.filter(p => p.signature).length ?? 0
-  const totalCount = data?.participants.length ?? 0
+  const signedCount = sortedParticipants.filter(p => p.signature).length
+  const totalCount = sortedParticipants.length
 
   // 연수등록부의 연수내용-담당자 쌍 파싱
   const trainingItems: { content: string; manager: string }[] | null = (() => {
@@ -300,7 +349,7 @@ const SignatureBookDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.participants.map((p, idx) => (
+                  {sortedParticipants.map((p, idx) => (
                     <tr key={p.userId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="border border-gray-400 px-2 py-1 text-center text-gray-600">{idx + 1}</td>
                       <td className="border border-gray-400 px-2 py-1 text-center">{formatAffiliation(p)}</td>
