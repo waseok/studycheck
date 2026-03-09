@@ -16,6 +16,7 @@ const SignatureBookDetail = () => {
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [customOrder, setCustomOrder] = useState<string[] | null>(null)
 
   const printRef = useRef<HTMLDivElement>(null)
   const signaturePadRef = useRef<SignaturePadRef>(null)
@@ -100,18 +101,19 @@ const SignatureBookDetail = () => {
     return p.userType
   }
 
-  // 교원-유치원-행정실-그 외 순 정렬
+  // 교장 > 교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외 순 정렬
   const sortedParticipants = [...(data?.participants ?? [])].sort((a, b) => {
     const getOrder = (p: SignatureParticipant): number => {
       const isTeacher = p.userType === '교원' || p.userType === '기간제교사'
       if (isTeacher) {
-        if (p.position === '교장' || p.position === '교감') return 0
-        if (p.grade && p.class) return 1  // 학급 담임
-        return 2  // 교과 전담
+        if (p.position === '교장') return 0
+        if (p.position === '교감') return 1
+        if (p.grade && p.class) return 2  // 학급 담임
+        return 3  // 교과 전담
       }
-      if (p.userType === '유치원') return 3
-      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 4
-      return 5
+      if (p.userType === '유치원') return 4
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(p.userType)) return 5
+      return 6
     }
     const oa = getOrder(a), ob = getOrder(b)
     if (oa !== ob) return oa - ob
@@ -123,6 +125,19 @@ const SignatureBookDetail = () => {
     if (ca !== cb) return ca - cb
     return a.name.localeCompare(b.name, 'ko')
   })
+
+  const displayParticipants = customOrder
+    ? customOrder.map(id => sortedParticipants.find(p => p.userId === id)).filter((p): p is SignatureParticipant => p !== undefined)
+    : sortedParticipants
+
+  const moveParticipant = (idx: number, dir: 'up' | 'down') => {
+    const ids = (customOrder ?? sortedParticipants.map(p => p.userId))
+    const arr = [...ids]
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= arr.length) return
+    ;[arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]]
+    setCustomOrder(arr)
+  }
 
   const exportPNG = async () => {
     if (!printRef.current || !data) return
@@ -198,8 +213,8 @@ const SignatureBookDetail = () => {
   }
 
   const myParticipant = data?.participants.find(p => p.userId === currentUserId)
-  const signedCount = sortedParticipants.filter(p => p.signature).length
-  const totalCount = sortedParticipants.length
+  const signedCount = displayParticipants.filter(p => p.signature).length
+  const totalCount = displayParticipants.length
 
   // 연수등록부의 연수내용-담당자 쌍 파싱
   const trainingItems: { content: string; manager: string }[] | null = (() => {
@@ -226,13 +241,23 @@ const SignatureBookDetail = () => {
           {data && (
             <>
               {isAdmin && (
-                <button
-                  onClick={handleSyncStatus}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1"
-                  title="서명했지만 미완료 상태인 참여자를 완료로 일괄 처리"
-                >
-                  🔄 이수상태 동기화
-                </button>
+                <>
+                  {customOrder && (
+                    <button
+                      onClick={() => setCustomOrder(null)}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 flex items-center gap-1"
+                    >
+                      ↺ 순서 초기화
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSyncStatus}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1"
+                    title="서명했지만 미완료 상태인 참여자를 완료로 일괄 처리"
+                  >
+                    🔄 이수상태 동기화
+                  </button>
+                </>
               )}
               <button
                 onClick={exportPNG}
@@ -346,10 +371,13 @@ const SignatureBookDetail = () => {
                     {isAdmin && (
                       <th className="border border-gray-400 px-2 py-2 text-center w-16 no-print">관리</th>
                     )}
+                    {isAdmin && (
+                      <th className="border border-gray-400 px-1 py-2 text-center w-12 no-print">순서</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedParticipants.map((p, idx) => (
+                  {displayParticipants.map((p, idx) => (
                     <tr key={p.userId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="border border-gray-400 px-2 py-1 text-center text-gray-600">{idx + 1}</td>
                       <td className="border border-gray-400 px-2 py-1 text-center">{formatAffiliation(p)}</td>
@@ -386,6 +414,24 @@ const SignatureBookDetail = () => {
                               삭제
                             </button>
                           )}
+                        </td>
+                      )}
+                      {isAdmin && (
+                        <td className="border border-gray-400 px-1 py-1 text-center no-print">
+                          <div className="flex flex-col gap-0.5 items-center">
+                            <button
+                              onClick={() => moveParticipant(idx, 'up')}
+                              disabled={idx === 0}
+                              className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
+                              title="위로"
+                            >▲</button>
+                            <button
+                              onClick={() => moveParticipant(idx, 'down')}
+                              disabled={idx === displayParticipants.length - 1}
+                              className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
+                              title="아래로"
+                            >▼</button>
+                          </div>
                         </td>
                       )}
                     </tr>
