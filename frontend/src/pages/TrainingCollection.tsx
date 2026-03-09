@@ -37,48 +37,44 @@ const TrainingCollection = () => {
       filtered = filtered.filter(p => p.status !== 'completed' || !p.completionNumber)
     }
 
-    // 정렬: 관리자 우선, 그 다음 학년-반 순서
+    // 교직원 유형별 순서: 교장/교감 > 담임 > 교과전담 > 유치원 > 행정실 > 그 외
+    const getTypeOrder = (user: any): number => {
+      const userType = user?.userType || ''
+      const position = user?.position || ''
+      const isTeacher = userType === '교원' || userType === '기간제교사'
+      if (isTeacher) {
+        if (position === '교장' || position === '교감') return 0
+        if (user?.grade && user?.class) return 1  // 학급 담임
+        return 2  // 교과 전담
+      }
+      if (userType === '유치원') return 3
+      if (['직원', '공무직', '교육공무직', '교직원'].includes(userType)) return 4
+      return 5
+    }
+
+    const baseSort = (a: TrainingParticipant, b: TrainingParticipant): number => {
+      const aOrder = getTypeOrder(a.user)
+      const bOrder = getTypeOrder(b.user)
+      if (aOrder !== bOrder) return aOrder - bOrder
+      const aGrade = parseInt(a.user?.grade || '99') || 99
+      const bGrade = parseInt(b.user?.grade || '99') || 99
+      if (aGrade !== bGrade) return aGrade - bGrade
+      const aClass = parseInt(a.user?.class || '99') || 99
+      const bClass = parseInt(b.user?.class || '99') || 99
+      if (aClass !== bClass) return aClass - bClass
+      return (a.user?.name || '').localeCompare(b.user?.name || '', 'ko')
+    }
+
     if (sortBy === 'default') {
-      filtered.sort((a, b) => {
-        // 관리자 우선 (role이 SUPER_ADMIN 또는 TRAINING_ADMIN인 경우)
-        const aIsAdmin = a.user?.role === 'SUPER_ADMIN' || a.user?.role === 'TRAINING_ADMIN'
-        const bIsAdmin = b.user?.role === 'SUPER_ADMIN' || b.user?.role === 'TRAINING_ADMIN'
-        
-        if (aIsAdmin && !bIsAdmin) return -1
-        if (!aIsAdmin && bIsAdmin) return 1
-
-        // 학년 순서 (숫자로 변환 후 비교)
-        const aGrade = parseInt(a.user?.grade || '0') || 0
-        const bGrade = parseInt(b.user?.grade || '0') || 0
-        if (aGrade !== bGrade) return aGrade - bGrade
-
-        // 반 순서
-        const aClass = parseInt(a.user?.class || '0') || 0
-        const bClass = parseInt(b.user?.class || '0') || 0
-        if (aClass !== bClass) return aClass - bClass
-
-        // 이름 순서
-        return (a.user?.name || '').localeCompare(b.user?.name || '')
-      })
+      filtered.sort(baseSort)
     } else if (sortBy === 'incomplete') {
       // 미이수자 우선 정렬
       filtered.sort((a, b) => {
         const aIncomplete = a.status !== 'completed' || !a.completionNumber
         const bIncomplete = b.status !== 'completed' || !b.completionNumber
-        
         if (aIncomplete && !bIncomplete) return -1
         if (!aIncomplete && bIncomplete) return 1
-
-        // 학년-반 순서
-        const aGrade = parseInt(a.user?.grade || '0') || 0
-        const bGrade = parseInt(b.user?.grade || '0') || 0
-        if (aGrade !== bGrade) return aGrade - bGrade
-
-        const aClass = parseInt(a.user?.class || '0') || 0
-        const bClass = parseInt(b.user?.class || '0') || 0
-        if (aClass !== bClass) return aClass - bClass
-
-        return (a.user?.name || '').localeCompare(b.user?.name || '')
+        return baseSort(a, b)
       })
     }
 
