@@ -261,8 +261,8 @@ const Trainings = () => {
     try {
       await apiClient.patch(`/trainings/${training.id}/complete`, { isCompleted: completed })
       fetchTrainings()
-    } catch {
-      alert('처리 중 오류가 발생했습니다.')
+    } catch (error: any) {
+      alert(error.response?.data?.error || '처리 중 오류가 발생했습니다.')
     }
   }
 
