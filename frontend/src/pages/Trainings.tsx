@@ -215,6 +215,35 @@ const Trainings = () => {
     setShowModal(true)
   }
 
+  const handleDuplicate = (training: Training) => {
+    setEditingTraining(null)
+    setFormData({
+      name: training.name + ' 복제본',
+      description: training.description || '',
+      registrationBook: training.registrationBook || '',
+      cycle: training.cycle || '',
+      targetUsers: training.targetUsers || [],
+      hours: training.hours || '',
+      implementationDate: training.implementationDate || '',
+      department: training.department || '',
+      manager: training.manager || '',
+      method: training.method || '',
+      methodLink: training.methodLink || '',
+      deadline: training.deadline ? training.deadline.split('T')[0] : '',
+    })
+    if (training.registrationBook) {
+      try {
+        const items: TrainingItem[] = JSON.parse(training.registrationBook)
+        setEditingItems(items.length > 0 ? items : [{ content: '', manager: '' }])
+      } catch {
+        setEditingItems([{ content: '', manager: '' }])
+      }
+    } else {
+      setEditingItems([])
+    }
+    setShowModal(true)
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
     try {
@@ -250,8 +279,8 @@ const Trainings = () => {
     e.preventDefault()
     try {
       let payload: any = { ...formData }
-      // 연수등록부 항목이 있으면 업데이트
-      if (editingTraining?.registrationBook && editingItems.length > 0) {
+      // 연수등록부 항목이 있으면 업데이트 (수정 및 복제 모두 처리)
+      if ((editingTraining?.registrationBook || formData.registrationBook) && editingItems.length > 0) {
         const validItems = editingItems.filter(item => item.content.trim() || item.manager.trim())
         payload.registrationBook = JSON.stringify(validItems)
         if (validItems.length > 0 && !payload.manager) {
@@ -452,6 +481,13 @@ const Trainings = () => {
               )}
             </>
           )}
+          <button
+            onClick={() => handleDuplicate(training)}
+            className="text-purple-600 hover:text-purple-900"
+            title="이 연수를 복제하여 새 연수 만들기"
+          >
+            복제
+          </button>
           <button
             onClick={() => handleEdit(training)}
             className="text-indigo-600 hover:text-indigo-900"
@@ -677,7 +713,7 @@ const Trainings = () => {
                 </div>
 
                 {/* 연수등록부로 만든 경우: 연수 내용/담당자 쌍 수정 */}
-                {editingTraining?.registrationBook && editingItems.length > 0 && (
+                {(editingTraining?.registrationBook || formData.registrationBook) && editingItems.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-purple-700">📋 연수 내용 및 담당자 수정</label>
