@@ -65,6 +65,16 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   }
 }
 
+export const trainingAdminMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(403).json({ error: '인증이 필요합니다.' })
+  }
+  if (!req.user.isAdmin && req.user.role !== 'TRAINING_ADMIN') {
+    return res.status(403).json({ error: '연수 관리자 권한이 필요합니다.' })
+  }
+  next()
+}
+
 export const adminMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (process.env.NODE_ENV === 'development') {
     console.log('🔐 Admin middleware check:', {
