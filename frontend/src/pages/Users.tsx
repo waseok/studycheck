@@ -331,6 +331,7 @@ const Users = () => {
           <div className="text-center py-8">로딩 중...</div>
         ) : (
           <div className="bg-white shadow-xl rounded-2xl overflow-hidden border-4 border-blue-200">
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -383,6 +384,7 @@ const Users = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
