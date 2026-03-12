@@ -563,6 +563,7 @@ const Trainings = () => {
           <div className="space-y-4">
             {/* 진행 중인 연수 */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 {tableHead}
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -579,6 +580,7 @@ const Trainings = () => {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* 완료 목록 (접기/펼치기) */}
@@ -592,6 +594,7 @@ const Trainings = () => {
                   <span>{showCompleted ? '▲ 접기' : '▼ 펼치기'}</span>
                 </button>
                 {showCompleted && (
+                  <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     {tableHead}
                     <tbody className="divide-y divide-gray-200">
@@ -600,6 +603,7 @@ const Trainings = () => {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             )}
