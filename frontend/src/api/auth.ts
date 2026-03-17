@@ -79,7 +79,17 @@ export const isAdmin = (): boolean => {
 
 export const isAuthenticated = (): boolean => {
   try {
-    return !!localStorage.getItem('token')
+    const token = localStorage.getItem('token')
+    if (!token) return false
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      // 토큰 만료 시 정리
+      localStorage.removeItem('token')
+      localStorage.removeItem('isAdmin')
+      localStorage.removeItem('role')
+      return false
+    }
+    return true
   } catch (error) {
     console.error('isAuthenticated 오류:', error)
     return false

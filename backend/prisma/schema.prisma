@@ -29,6 +29,7 @@ model User {
   trainingParticipants TrainingParticipant[]
   reminders           TrainingReminder[]
   signatures          TrainingSignature[]
+  trainingNotices     TrainingNotice[]
 
   @@map("users")
 }
@@ -108,5 +109,23 @@ model TrainingReminder {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("training_reminders")
+}
+
+model TrainingNotice {
+  id          String   @id @default(uuid())
+  order       Int      // 순번
+  name        String   // 연수명
+  targetUsers String?  @map("target_users") // 대상자
+  hours       String?  // 이수시간
+  manager     String?  // 담당자
+  method      String?  // 연수자료 및 방법
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("training_notices")
 }
 
