@@ -74,9 +74,9 @@ export const updateTrainingNotice = async (req: AuthRequest, res: Response) => {
   }
 }
 
-export const deleteTrainingNotice = async (_req: Request, res: Response) => {
+export const deleteTrainingNotice = async (req: Request, res: Response) => {
   try {
-    const { id } = (_req as any).params
+    const { id } = req.params
     await prisma.trainingNotice.delete({ where: { id } })
     res.json({ success: true })
   } catch (error) {

@@ -19,9 +19,16 @@ export default function TrainingNoticePage() {
   const [editData, setEditData] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
-  const currentUserId = localStorage.getItem('userId')
   const role = localStorage.getItem('role')
   const isAdmin = role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN'
+  const currentUserId = (() => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userId || null
+    } catch { return null }
+  })()
 
   const fetchNotices = async () => {
     try {
