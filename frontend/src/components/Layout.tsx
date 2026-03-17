@@ -31,6 +31,12 @@ const Layout = ({ children }: LayoutProps) => {
 
   const menuItems = (
     <>
+      <Link
+        to="/dashboard/training-notice"
+        className={`${linkBase} ${isActive('/dashboard/training-notice') ? linkActive : linkInactive}`}
+      >
+        📋 연수 안내
+      </Link>
       {role === 'SUPER_ADMIN' && (
         <Link
           to="/dashboard/users"
@@ -78,6 +84,13 @@ const Layout = ({ children }: LayoutProps) => {
 
   const mobileMenuItems = (
     <>
+      <Link
+        to="/dashboard/training-notice"
+        onClick={closeMenu}
+        className={`${mobileLinkBase} ${isActive('/dashboard/training-notice') ? mobileLinkActive : mobileLinkInactive}`}
+      >
+        📋 연수 안내
+      </Link>
       {role === 'SUPER_ADMIN' && (
         <Link
           to="/dashboard/users"

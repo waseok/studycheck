@@ -10,6 +10,7 @@ import Stats from './pages/Stats'
 import Profile from './pages/Profile'
 import SignatureBook from './pages/SignatureBook'
 import SignatureBookDetail from './pages/SignatureBookDetail'
+import TrainingNotice from './pages/TrainingNotice'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -99,6 +100,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
               <SignatureBookDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/training-notice"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <TrainingNotice />
             </ProtectedRoute>
           }
         />
