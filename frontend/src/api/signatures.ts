@@ -35,8 +35,8 @@ export const getSignatureBook = async (trainingId: string): Promise<SignatureBoo
   return response.data
 }
 
-export const saveSignature = async (trainingId: string, signatureImage: string): Promise<{ success: boolean }> => {
-  const response = await apiClient.post(`/signatures/training/${trainingId}`, { signatureImage })
+export const saveSignature = async (trainingId: string, signatureImage: string, targetUserId?: string): Promise<{ success: boolean }> => {
+  const response = await apiClient.post(`/signatures/training/${trainingId}`, { signatureImage, targetUserId })
   return response.data
 }
 

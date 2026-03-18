@@ -63,7 +63,9 @@ const SignatureBookDetail = () => {
     setSaving(true)
     try {
       const imageData = signaturePadRef.current.toDataURL()
-      await saveSignature(trainingId, imageData)
+      // 관리자가 타인을 대신 서명하는 경우 targetUserId 전달
+      const targetUserId = (isAdmin && signingUserId !== currentUserId) ? signingUserId : undefined
+      await saveSignature(trainingId, imageData, targetUserId)
       setSigningUserId(null)
       await fetchData()
     } catch (err: any) {
@@ -393,12 +395,12 @@ const SignatureBookDetail = () => {
                             alt="서명"
                             className="max-h-12 mx-auto object-contain"
                           />
-                        ) : p.userId === currentUserId ? (
+                        ) : (p.userId === currentUserId || isAdmin) ? (
                           <button
                             onClick={() => setSigningUserId(p.userId)}
                             className="text-xs text-blue-600 hover:underline no-print"
                           >
-                            서명하기
+                            {isAdmin && p.userId !== currentUserId ? '대리서명' : '서명하기'}
                           </button>
                         ) : (
                           <span className="text-gray-300 text-xs">미서명</span>
@@ -461,7 +463,11 @@ const SignatureBookDetail = () => {
       {signingUserId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">전자서명</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {isAdmin && signingUserId !== currentUserId
+                ? `대리서명 (${data?.participants.find(p => p.userId === signingUserId)?.name || ''})`
+                : '전자서명'}
+            </h2>
             <p className="text-sm text-gray-500 mb-4">아래 공간에 서명해 주세요. 마우스나 손가락으로 서명하세요.</p>
             <SignaturePad ref={signaturePadRef} />
             <div className="flex gap-3 mt-4">
