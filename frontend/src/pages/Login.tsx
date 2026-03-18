@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { loginInitial, loginPin, login, register, isAuthenticated } from '../api/auth'
 import GoogleLoginButton from '../components/GoogleLoginButton'
 
@@ -34,12 +34,10 @@ const Login = () => {
   const [registerLoading, setRegisterLoading] = useState(false)
   const navigate = useNavigate()
 
-  // 유효한 토큰이 있으면 자동으로 대시보드로 이동
-  useEffect(() => {
-    if (isAuthenticated()) {
-      navigate('/dashboard', { replace: true })
-    }
-  }, [])
+  // 유효한 토큰이 있으면 즉시 대시보드로 이동 (렌더링 전)
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
   const hasGoogleClientId = GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID.trim() !== ''

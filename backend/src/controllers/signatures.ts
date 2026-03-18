@@ -75,18 +75,25 @@ export const getSignatures = async (req: Request, res: Response) => {
   }
 }
 
-// 서명 저장/업데이트 (본인만)
+// 서명 저장/업데이트 (본인 또는 관리자가 타인 대리 서명 가능)
 export const saveSignature = async (req: Request, res: Response) => {
   try {
     const { trainingId } = req.params
-    const userId = (req as any).user?.userId
-    const { signatureImage } = req.body as { signatureImage?: string }
+    const requestUserId = (req as any).user?.userId
+    const isAdmin = (req as any).user?.isAdmin || false
+    const { signatureImage, targetUserId } = req.body as { signatureImage?: string; targetUserId?: string }
 
-    if (!userId) return res.status(401).json({ error: '인증이 필요합니다.' })
+    if (!requestUserId) return res.status(401).json({ error: '인증이 필요합니다.' })
     if (!signatureImage) return res.status(400).json({ error: '서명 이미지가 필요합니다.' })
     if (!signatureImage.startsWith('data:image/')) {
       return res.status(400).json({ error: '올바른 이미지 형식이 아닙니다.' })
     }
+
+    // 관리자는 targetUserId로 타인 서명 가능, 일반 사용자는 본인만
+    if (targetUserId && targetUserId !== requestUserId && !isAdmin) {
+      return res.status(403).json({ error: '본인 서명만 작성할 수 있습니다.' })
+    }
+    const userId = (isAdmin && targetUserId) ? targetUserId : requestUserId
 
     // 참여자인지 확인
     const participant = await prisma.trainingParticipant.findUnique({
