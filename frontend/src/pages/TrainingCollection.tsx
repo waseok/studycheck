@@ -223,7 +223,7 @@ const TrainingCollection = () => {
     // 통계 정보 시트
     const statsData = [
       ['연수명', training.name],
-      ...(training.description ? [['연수 설명', training.description]] : []),
+      ['연수 설명', training.description || '-'],
       ['이수 기한', training.deadline ? new Date(training.deadline).toLocaleDateString('ko-KR') : '미설정'],
       [''],
       ['통계 정보'],
