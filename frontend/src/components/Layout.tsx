@@ -57,7 +57,13 @@ const Layout = ({ children }: LayoutProps) => {
         to="/dashboard/signature-book"
         className={`${linkBase} ${location.pathname.startsWith('/dashboard/signature-book') ? linkActive : linkInactive}`}
       >
-        ✍️ 연수등록부 서명하기
+        ✍️ 연수등록부
+      </Link>
+      <Link
+        to="/dashboard/meetings"
+        className={`${linkBase} ${location.pathname.startsWith('/dashboard/meetings') ? linkActive : linkInactive}`}
+      >
+        📝 회의등록부
       </Link>
       <Link
         to="/dashboard/my-trainings"
@@ -114,7 +120,14 @@ const Layout = ({ children }: LayoutProps) => {
         onClick={closeMenu}
         className={`${mobileLinkBase} ${location.pathname.startsWith('/dashboard/signature-book') ? mobileLinkActive : mobileLinkInactive}`}
       >
-        ✍️ 연수등록부 서명하기
+        ✍️ 연수등록부
+      </Link>
+      <Link
+        to="/dashboard/meetings"
+        onClick={closeMenu}
+        className={`${mobileLinkBase} ${location.pathname.startsWith('/dashboard/meetings') ? mobileLinkActive : mobileLinkInactive}`}
+      >
+        📝 회의등록부
       </Link>
       <Link
         to="/dashboard/my-trainings"

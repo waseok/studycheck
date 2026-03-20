@@ -1,0 +1,265 @@
+import { Request, Response } from 'express'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+// 직위 정렬 순서 (연수등록부와 동일)
+const getPositionOrder = (position: string | null, userType: string): number => {
+  if (!position) {
+    if (userType === '교원' || userType === '기간제교사') return 5
+    return 6
+  }
+  const p = position.toLowerCase()
+  if (p.includes('교장')) return 0
+  if (p.includes('교감')) return 1
+  if (p.includes('담임') || p.includes('학급')) return 2
+  if (p.includes('전담') || p.includes('교과')) return 3
+  if (p.includes('유치')) return 4
+  if (userType === '교원' || userType === '기간제교사') return 5
+  return 6
+}
+
+// 회의 목록 조회
+export const getMeetings = async (_req: Request, res: Response) => {
+  try {
+    const meetings = await prisma.meeting.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        participants: { include: { user: { select: { id: true, name: true } } } },
+        _count: { select: { signatures: true } }
+      }
+    })
+    res.json(meetings)
+  } catch (error) {
+    console.error('getMeetings error:', error)
+    res.status(500).json({ error: '회의 목록 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+// 회의 상세 조회 (참가자 + 서명 포함)
+export const getMeeting = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const meeting = await prisma.meeting.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: { id: true, name: true, userType: true, position: true, grade: true, class: true }
+            }
+          }
+        },
+        signatures: true
+      }
+    })
+    if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없습니다.' })
+
+    // 서명 맵핑 + 정렬
+    const signatureMap = new Map(meeting.signatures.map(s => [s.userId, s]))
+    const participants = meeting.participants
+      .map(p => ({
+        participantId: p.id,
+        userId: p.userId,
+        name: p.user.name,
+        userType: p.user.userType,
+        position: p.user.position,
+        grade: p.user.grade,
+        class: p.user.class,
+        signature: signatureMap.get(p.userId) ?? null
+      }))
+      .sort((a, b) => {
+        const orderA = getPositionOrder(a.position, a.userType)
+        const orderB = getPositionOrder(b.position, b.userType)
+        if (orderA !== orderB) return orderA - orderB
+        const gradeA = parseInt(a.grade || '0') || 0
+        const gradeB = parseInt(b.grade || '0') || 0
+        if (gradeA !== gradeB) return gradeA - gradeB
+        const classA = parseInt(a.class || '0') || 0
+        const classB = parseInt(b.class || '0') || 0
+        if (classA !== classB) return classA - classB
+        return a.name.localeCompare(b.name, 'ko')
+      })
+
+    res.json({
+      meeting: {
+        id: meeting.id,
+        name: meeting.name,
+        agenda: meeting.agenda,
+        date: meeting.date,
+        location: meeting.location,
+        isCompleted: meeting.isCompleted,
+        completedAt: meeting.completedAt
+      },
+      participants
+    })
+  } catch (error) {
+    console.error('getMeeting error:', error)
+    res.status(500).json({ error: '회의 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+// 회의 생성 (관리자)
+export const createMeeting = async (req: Request, res: Response) => {
+  try {
+    const { name, agenda, date, location, participantIds } = req.body as {
+      name: string
+      agenda?: string
+      date?: string
+      location?: string
+      participantIds?: string[]
+    }
+    const createdById = (req as any).user?.userId
+
+    if (!name?.trim()) return res.status(400).json({ error: '회의명은 필수입니다.' })
+    if (!createdById) return res.status(401).json({ error: '인증이 필요합니다.' })
+
+    const meeting = await prisma.meeting.create({
+      data: {
+        name: name.trim(),
+        agenda: agenda?.trim() || null,
+        date: date?.trim() || null,
+        location: location?.trim() || null,
+        createdById,
+        participants: participantIds?.length
+          ? { create: participantIds.map(userId => ({ userId })) }
+          : undefined
+      }
+    })
+    res.status(201).json(meeting)
+  } catch (error) {
+    console.error('createMeeting error:', error)
+    res.status(500).json({ error: '회의 생성 중 오류가 발생했습니다.' })
+  }
+}
+
+// 회의 수정 (관리자)
+export const updateMeeting = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { name, agenda, date, location } = req.body as {
+      name?: string; agenda?: string; date?: string; location?: string
+    }
+    const meeting = await prisma.meeting.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(agenda !== undefined && { agenda: agenda?.trim() || null }),
+        ...(date !== undefined && { date: date?.trim() || null }),
+        ...(location !== undefined && { location: location?.trim() || null })
+      }
+    })
+    res.json(meeting)
+  } catch (error) {
+    console.error('updateMeeting error:', error)
+    res.status(500).json({ error: '회의 수정 중 오류가 발생했습니다.' })
+  }
+}
+
+// 회의 완료 처리 (관리자)
+export const completeMeeting = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { isCompleted } = req.body as { isCompleted: boolean }
+    const meeting = await prisma.meeting.update({
+      where: { id },
+      data: {
+        isCompleted: !!isCompleted,
+        completedAt: isCompleted ? new Date() : null
+      }
+    })
+    res.json(meeting)
+  } catch (error) {
+    console.error('completeMeeting error:', error)
+    res.status(500).json({ error: '완료 처리 중 오류가 발생했습니다.' })
+  }
+}
+
+// 회의 삭제 (관리자)
+export const deleteMeeting = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    await prisma.meeting.delete({ where: { id } })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('deleteMeeting error:', error)
+    res.status(500).json({ error: '회의 삭제 중 오류가 발생했습니다.' })
+  }
+}
+
+// 참가자 추가 (관리자)
+export const addParticipants = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { userIds } = req.body as { userIds: string[] }
+    if (!userIds?.length) return res.status(400).json({ error: '추가할 참가자를 선택해주세요.' })
+
+    await prisma.meetingParticipant.createMany({
+      data: userIds.map(userId => ({ meetingId: id, userId })),
+      skipDuplicates: true
+    })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('addParticipants error:', error)
+    res.status(500).json({ error: '참가자 추가 중 오류가 발생했습니다.' })
+  }
+}
+
+// 참가자 제거 (관리자)
+export const removeParticipant = async (req: Request, res: Response) => {
+  try {
+    const { id, userId } = req.params
+    await prisma.meetingParticipant.deleteMany({ where: { meetingId: id, userId } })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('removeParticipant error:', error)
+    res.status(500).json({ error: '참가자 제거 중 오류가 발생했습니다.' })
+  }
+}
+
+// 서명 저장 (본인 또는 관리자 대리서명)
+export const saveMeetingSignature = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId } = req.params
+    const requestUserId = (req as any).user?.userId
+    const isAdmin = (req as any).user?.isAdmin || false
+    const { signatureImage, targetUserId } = req.body as { signatureImage?: string; targetUserId?: string }
+
+    if (!requestUserId) return res.status(401).json({ error: '인증이 필요합니다.' })
+    if (!signatureImage?.startsWith('data:image/')) return res.status(400).json({ error: '올바른 서명 이미지가 필요합니다.' })
+
+    if (targetUserId && targetUserId !== requestUserId && !isAdmin) {
+      return res.status(403).json({ error: '본인 서명만 작성할 수 있습니다.' })
+    }
+    const userId = (isAdmin && targetUserId) ? targetUserId : requestUserId
+
+    const participant = await prisma.meetingParticipant.findUnique({
+      where: { meetingId_userId: { meetingId, userId } }
+    })
+    if (!participant) return res.status(403).json({ error: '해당 회의의 참가자가 아닙니다.' })
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
+
+    const signature = await prisma.meetingSignature.upsert({
+      where: { meetingId_userId: { meetingId, userId } },
+      create: { meetingId, userId, signatureImage, ipAddress },
+      update: { signatureImage, signedAt: new Date(), ipAddress }
+    })
+    res.json({ success: true, signature })
+  } catch (error) {
+    console.error('saveMeetingSignature error:', error)
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' })
+  }
+}
+
+// 서명 삭제 (관리자)
+export const deleteMeetingSignature = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId, userId } = req.params
+    await prisma.meetingSignature.deleteMany({ where: { meetingId, userId } })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('deleteMeetingSignature error:', error)
+    res.status(500).json({ error: '서명 삭제 중 오류가 발생했습니다.' })
+  }
+}

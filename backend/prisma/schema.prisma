@@ -30,6 +30,9 @@ model User {
   reminders           TrainingReminder[]
   signatures          TrainingSignature[]
   trainingNotices     TrainingNotice[]
+  meetingParticipants MeetingParticipant[]
+  meetingSignatures   MeetingSignature[]
+  createdMeetings     Meeting[]
 
   @@map("users")
 }
@@ -93,6 +96,53 @@ model TrainingSignature {
 
   @@unique([trainingId, userId])
   @@map("training_signatures")
+}
+
+model Meeting {
+  id          String    @id @default(uuid())
+  name        String    // 회의명
+  agenda      String?   // 회의 안건
+  date        String?   // 일시 (텍스트)
+  location    String?   // 장소
+  isCompleted Boolean   @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  createdBy    User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  participants MeetingParticipant[]
+  signatures   MeetingSignature[]
+
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  id        String   @id @default(uuid())
+  meetingId String   @map("meeting_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@map("meeting_participants")
+}
+
+model MeetingSignature {
+  id             String   @id @default(uuid())
+  meetingId      String   @map("meeting_id")
+  userId         String   @map("user_id")
+  signatureImage String   @map("signature_image")
+  signedAt       DateTime @default(now()) @map("signed_at")
+  ipAddress      String?  @map("ip_address")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@map("meeting_signatures")
 }
 
 model TrainingReminder {

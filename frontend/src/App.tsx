@@ -11,6 +11,8 @@ import Profile from './pages/Profile'
 import SignatureBook from './pages/SignatureBook'
 import SignatureBookDetail from './pages/SignatureBookDetail'
 import TrainingNotice from './pages/TrainingNotice'
+import MeetingList from './pages/MeetingList'
+import MeetingDetail from './pages/MeetingDetail'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -108,6 +110,22 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
               <TrainingNotice />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/meetings"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <MeetingList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/meetings/:meetingId"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'TRAINING_ADMIN', 'USER']}>
+              <MeetingDetail />
             </ProtectedRoute>
           }
         />
