@@ -16,6 +16,7 @@ const MeetingList = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [duplicating, setDuplicating] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const role = localStorage.getItem('role') as string | null
@@ -82,6 +83,26 @@ const MeetingList = () => {
     }
   }
 
+  const handleDuplicate = async (m: Meeting) => {
+    if (duplicating) return
+    setDuplicating(m.id)
+    try {
+      const participantIds = m.participants?.map(p => p.user.id) ?? []
+      const newMeeting = await createMeeting({
+        name: `${m.name} (복사본)`,
+        agenda: m.agenda ?? undefined,
+        date: m.date ?? undefined,
+        location: m.location ?? undefined,
+        participantIds
+      })
+      navigate(`/dashboard/meetings/${newMeeting.id}`)
+    } catch {
+      setError('회의 복제에 실패했습니다.')
+    } finally {
+      setDuplicating(null)
+    }
+  }
+
   const toggleUser = (userId: string) => {
     setSelectedUserIds(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
@@ -102,14 +123,22 @@ const MeetingList = () => {
         m.isCompleted ? 'border-gray-200 hover:border-gray-300 opacity-75' : 'border-green-100 hover:border-green-300'
       }`}
     >
-      {isAdmin && !m.isCompleted && (
-        <button
-          onClick={e => { e.stopPropagation(); handleDelete(m.id, m.name) }}
-          className="absolute top-3 right-3 text-gray-300 hover:text-red-500 text-sm"
-          title="삭제"
-        >✕</button>
+      {isAdmin && (
+        <div className="absolute top-3 right-3 flex items-center gap-1">
+          <button
+            onClick={e => { e.stopPropagation(); handleDuplicate(m) }}
+            className="text-gray-300 hover:text-blue-500 text-sm px-1"
+            title="복제"
+            disabled={duplicating === m.id}
+          >{duplicating === m.id ? '⏳' : '⧉'}</button>
+          <button
+            onClick={e => { e.stopPropagation(); handleDelete(m.id, m.name) }}
+            className="text-gray-300 hover:text-red-500 text-sm px-1"
+            title="삭제"
+          >✕</button>
+        </div>
       )}
-      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight pr-6">{m.name}</h2>
+      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight pr-14">{m.name}</h2>
       <div className="text-sm text-gray-600 space-y-1">
         {m.date && <p>📅 {m.date}</p>}
         {m.location && <p>📍 {m.location}</p>}
