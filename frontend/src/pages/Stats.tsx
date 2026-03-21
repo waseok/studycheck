@@ -12,6 +12,7 @@ const Stats = () => {
   const [selectedTraining, setSelectedTraining] = useState<string | null>(null)
   const [trainingStats, setTrainingStats] = useState<any>(null)
   const [incompleteList, setIncompleteList] = useState<any[]>([])
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [reminderResult, setReminderResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -337,54 +338,68 @@ const Stats = () => {
               )}
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    연수명
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이름
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이메일
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    유형
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이수 기한
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {incompleteList.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.training?.name || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.user?.name || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.user?.email || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.user?.userType || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.training?.deadline
-                        ? new Date(item.training.deadline).toLocaleDateString('ko-KR')
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {incompleteList.length === 0 && (
+          {incompleteList.length === 0 ? (
             <div className="text-center py-8 text-gray-500">미이수자가 없습니다.</div>
+          ) : (
+            <div className="space-y-2">
+              {Object.entries(
+                incompleteList.reduce((acc: Record<string, any[]>, item) => {
+                  const key = item.training?.id || 'unknown'
+                  if (!acc[key]) acc[key] = []
+                  acc[key].push(item)
+                  return acc
+                }, {})
+              ).map(([trainingId, items]) => {
+                const trainingName = items[0]?.training?.name || '-'
+                const deadline = items[0]?.training?.deadline
+                const isOpen = expandedGroups[trainingId] ?? true
+                return (
+                  <div key={trainingId} className="border border-gray-200 rounded-xl overflow-hidden">
+                    {/* 연수 그룹 헤더 */}
+                    <button
+                      onClick={() => setExpandedGroups(prev => ({ ...prev, [trainingId]: !isOpen }))}
+                      className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-gray-900 text-sm">{trainingName}</span>
+                        {deadline && (
+                          <span className="text-xs text-gray-500">
+                            기한: {new Date(deadline).toLocaleDateString('ko-KR')}
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                          미이수 {items.length}명
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-sm">{isOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {/* 펼쳐진 목록 */}
+                    {isOpen && (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-white">
+                            <tr>
+                              <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
+                              <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
+                              <th className="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {items.map((item) => (
+                              <tr key={item.id} className="hover:bg-gray-50">
+                                <td className="px-5 py-2.5 whitespace-nowrap text-sm text-gray-800">{item.user?.name || '-'}</td>
+                                <td className="px-5 py-2.5 whitespace-nowrap text-sm text-gray-500">{item.user?.email || '-'}</td>
+                                <td className="px-5 py-2.5 whitespace-nowrap text-sm text-gray-500">{item.user?.userType || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>

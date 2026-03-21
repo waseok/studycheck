@@ -171,7 +171,7 @@ const Layout = ({ children }: LayoutProps) => {
               to="/dashboard"
               className="flex items-center whitespace-nowrap px-2 py-2 text-blue-700 hover:bg-blue-50 rounded-lg font-bold text-sm transition-all shrink-0"
             >
-              📚 와석초 의무연수
+              🏫 와석초 연수관리 플랫폼
             </Link>
 
             {/* 데스크톱 메뉴 */}
