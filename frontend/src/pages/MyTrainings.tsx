@@ -94,76 +94,82 @@ const MyTrainings = () => {
             const training = participant.training
             if (!training) return null
 
+            const hasDetail = training.description || training.method || training.methodLink || training.manager
             return (
-              <div key={participant.id} className={`bg-white shadow-lg rounded-2xl p-6 border-2 ${participant.status !== 'completed' ? 'border-yellow-300' : 'border-green-200'}`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">{training.name}</h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      대상자: {Array.isArray(training.targetUsers) ? training.targetUsers.join(', ') : '-'}
-                    </p>
-                    {training.deadline && (
-                      <p className={`text-base font-semibold mt-2 ${participant.status !== 'completed' ? 'text-red-600' : 'text-gray-600'}`}>
-                        이수 기한: {new Date(training.deadline).toLocaleDateString('ko-KR')}
-                      </p>
+              <div key={participant.id} className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden ${participant.status !== 'completed' ? 'border-l-yellow-400' : 'border-l-green-400'}`}>
+                {/* 헤더 */}
+                <div className="px-6 pt-5 pb-4">
+                  <div className="flex justify-between items-start gap-3">
+                    <h2 className="text-lg font-bold text-gray-900 leading-snug">{training.name}</h2>
+                    <span className={`shrink-0 px-3 py-1 text-xs font-semibold rounded-full ${
+                      participant.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {participant.status === 'completed' ? '✅ 완료' : '⏳ 미완료'}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                    {Array.isArray(training.targetUsers) && training.targetUsers.length > 0 && (
+                      <span>대상: {training.targetUsers.join(', ')}</span>
                     )}
+                    {training.deadline && (
+                      <span className={`font-semibold ${participant.status !== 'completed' ? 'text-red-600' : 'text-gray-500'}`}>
+                        이수 기한: {new Date(training.deadline).toLocaleDateString('ko-KR')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 세부 정보 */}
+                {hasDetail && (
+                  <div className="mx-6 mb-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 space-y-1.5 text-sm text-gray-700">
                     {training.description && (
-                      <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{training.description}</p>
+                      <p className="whitespace-pre-line leading-relaxed">{training.description}</p>
                     )}
                     {(training.method || training.methodLink) && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        📎 연수자료: {training.method && <span>{training.method}</span>}
+                      <p className="text-gray-500">
+                        <span className="font-medium text-gray-600">📎 연수자료</span>
+                        {training.method && <span className="ml-1">{training.method}</span>}
                         {training.methodLink && (
-                          <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline break-all">{training.methodLink}</a>
+                          <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:underline break-all">{training.methodLink}</a>
                         )}
                       </p>
                     )}
                     {training.manager && (
-                      <p className="text-sm text-gray-500 mt-1">👤 담당자: {training.manager}</p>
+                      <p className="text-gray-500"><span className="font-medium text-gray-600">👤 담당자</span> {training.manager}</p>
                     )}
                   </div>
-                  <span
-                    className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      participant.status === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {participant.status === 'completed' ? '완료' : '미완료'}
-                  </span>
-                </div>
+                )}
 
-                <div className="mt-4">
+                {/* 이수 액션 */}
+                <div className="px-6 pb-5">
                   {training.registrationBook ? (
-                    <div>
-                      {participant.status === 'completed' ? (
-                        <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-                          <span className="text-lg">✅</span>
-                          <span className="font-medium">연수등록부 서명 완료</span>
-                          {participant.completedAt && (
-                            <span className="text-xs text-gray-500 ml-auto">
-                              완료일: {new Date(participant.completedAt).toLocaleDateString('ko-KR')}
-                            </span>
-                          )}
+                    participant.status === 'completed' ? (
+                      <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                        <span className="text-base">✅</span>
+                        <span className="font-medium text-sm">연수등록부 서명 완료</span>
+                        {participant.completedAt && (
+                          <span className="text-xs text-gray-400 ml-auto">
+                            {new Date(participant.completedAt).toLocaleDateString('ko-KR')}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
+                        <div className="flex items-center gap-2 text-yellow-700 text-sm">
+                          <span>✍️</span>
+                          <span className="font-medium">연수등록부에 서명하면 이수 완료됩니다</span>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2 text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">✍️</span>
-                            <span className="font-medium">연수등록부에 서명하면 이수 완료됩니다</span>
-                          </div>
-                          <button
-                            onClick={() => navigate(`/dashboard/signature-book/${training.id}`)}
-                            className="px-3 py-1 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 whitespace-nowrap"
-                          >
-                            서명하러 가기
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => navigate(`/dashboard/signature-book/${training.id}`)}
+                          className="shrink-0 px-4 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600"
+                        >
+                          서명하러 가기
+                        </button>
+                      </div>
+                    )
                   ) : (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-600 mb-2">
                         {participant.status === 'completed' ? '이수번호 수정' : '이수번호 입력'}
                       </label>
                       <div className="flex gap-2">
@@ -172,31 +178,27 @@ const MyTrainings = () => {
                           placeholder="이수번호를 입력하세요"
                           value={editingCompletionNumbers[participant.id] ?? (participant.completionNumber || '')}
                           onChange={(e) => handleCompletionNumberChange(participant.id, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleSubmitCompletionNumber(participant.id)
-                            }
-                          }}
-                          className="flex-1 border-2 border-blue-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 text-base"
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitCompletionNumber(participant.id) }}
+                          className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400 text-sm"
                         />
                         <button
                           onClick={() => handleSubmitCompletionNumber(participant.id)}
                           disabled={!editingCompletionNumbers[participant.id]?.trim() && !participant.completionNumber}
-                          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium shadow-md transition-colors"
+                          className="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
                         >
                           {participant.status === 'completed' ? '수정' : '제출'}
                         </button>
                         {participant.status === 'completed' && (
                           <button
                             onClick={() => handleCancelCompletion(participant.id)}
-                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium shadow-md transition-colors"
+                            className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium"
                           >
-                            제출 취소
+                            취소
                           </button>
                         )}
                       </div>
                       {participant.status === 'completed' && participant.completedAt && (
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-400 mt-1.5">
                           완료일: {new Date(participant.completedAt).toLocaleDateString('ko-KR')}
                         </p>
                       )}

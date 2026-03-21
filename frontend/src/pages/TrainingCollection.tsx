@@ -260,64 +260,67 @@ const TrainingCollection = () => {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {training?.name || '연수 취합'}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              이수 기한: {training?.deadline
-                ? new Date(training.deadline).toLocaleDateString('ko-KR')
-                : '미설정'}
-            </p>
-            {training?.targetUsers && training.targetUsers.length > 0 && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                대상자: {training.targetUsers.join(', ')}
-              </p>
-            )}
-            {training?.description && (
-              <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{training.description}</p>
-            )}
-            {(training?.method || training?.methodLink) && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                📎 연수자료: {training.method && <span>{training.method}</span>}
-                {training.methodLink && (
-                  <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline break-all">{training.methodLink}</a>
-                )}
-              </p>
-            )}
-            {training?.manager && (
-              <p className="text-sm text-gray-500 mt-0.5">👤 담당자: {training.manager}</p>
-            )}
-          </div>
-          <div className="flex gap-2">
+        {/* 제목 + 버튼 행 */}
+        <div className="flex justify-between items-start gap-4">
+          <h1 className="text-2xl font-bold text-gray-900 leading-snug">
+            {training?.name || '연수 취합'}
+          </h1>
+          <div className="flex shrink-0 gap-2 flex-wrap justify-end">
             {adminUser && incompleteCount > 0 && (
               <button
                 onClick={handleSendIncompleteReminders}
                 disabled={sending}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-1.5"
               >
-                {sending ? '발송 중...' : '📧 미이수자 알림 발송'}
+                📧 {sending ? '발송 중...' : '미이수자 알림 발송'}
               </button>
             )}
             <button
               onClick={handleExportToExcel}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-1.5"
               disabled={filteredParticipants.length === 0}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              엑셀 내보내기
+              📥 엑셀 내보내기
             </button>
             <button
               onClick={() => navigate('/dashboard/trainings')}
-              className="px-4 py-2 border-2 border-gray-400 rounded-md text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium"
             >
               목록으로
             </button>
           </div>
         </div>
+
+        {/* 연수 세부 정보 카드 */}
+        {training && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 space-y-2 text-sm">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-gray-600">
+              {training.deadline && (
+                <span className="font-semibold text-gray-800">
+                  📅 이수 기한: {new Date(training.deadline).toLocaleDateString('ko-KR')}
+                </span>
+              )}
+              {training.targetUsers && training.targetUsers.length > 0 && (
+                <span>👥 대상자: {training.targetUsers.join(', ')}</span>
+              )}
+              {training.manager && (
+                <span>👤 담당자: {training.manager}</span>
+              )}
+            </div>
+            {training.description && (
+              <p className="text-gray-700 whitespace-pre-line leading-relaxed border-t border-gray-100 pt-2">{training.description}</p>
+            )}
+            {(training.method || training.methodLink) && (
+              <p className="text-gray-600 border-t border-gray-100 pt-2">
+                <span className="font-medium">📎 연수자료:</span>
+                {training.method && <span className="ml-1">{training.method}</span>}
+                {training.methodLink && (
+                  <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:underline break-all">{training.methodLink}</a>
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="bg-white shadow rounded-lg p-6">
           <div className="grid grid-cols-3 gap-4 mb-6">
