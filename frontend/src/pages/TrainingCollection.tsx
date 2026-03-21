@@ -270,6 +270,25 @@ const TrainingCollection = () => {
                 ? new Date(training.deadline).toLocaleDateString('ko-KR')
                 : '미설정'}
             </p>
+            {training?.targetUsers && training.targetUsers.length > 0 && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                대상자: {training.targetUsers.join(', ')}
+              </p>
+            )}
+            {training?.description && (
+              <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{training.description}</p>
+            )}
+            {(training?.method || training?.methodLink) && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                📎 연수자료: {training.method && <span>{training.method}</span>}
+                {training.methodLink && (
+                  <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline break-all">{training.methodLink}</a>
+                )}
+              </p>
+            )}
+            {training?.manager && (
+              <p className="text-sm text-gray-500 mt-0.5">👤 담당자: {training.manager}</p>
+            )}
           </div>
           <div className="flex gap-2">
             {adminUser && incompleteCount > 0 && (

@@ -107,6 +107,20 @@ const MyTrainings = () => {
                         이수 기한: {new Date(training.deadline).toLocaleDateString('ko-KR')}
                       </p>
                     )}
+                    {training.description && (
+                      <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{training.description}</p>
+                    )}
+                    {(training.method || training.methodLink) && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        📎 연수자료: {training.method && <span>{training.method}</span>}
+                        {training.methodLink && (
+                          <a href={training.methodLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline break-all">{training.methodLink}</a>
+                        )}
+                      </p>
+                    )}
+                    {training.manager && (
+                      <p className="text-sm text-gray-500 mt-1">👤 담당자: {training.manager}</p>
+                    )}
                   </div>
                   <span
                     className={`px-3 py-1 text-sm font-medium rounded-full ${
