@@ -76,10 +76,13 @@ export const getMyTrainings = async (req: Request, res: Response) => {
           select: {
             id: true,
             name: true,
+            description: true,
             deadline: true,
             targetUsers: true,
             department: true,
             manager: true,
+            method: true,
+            methodLink: true,
             registrationBook: true
           }
         },

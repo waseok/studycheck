@@ -400,7 +400,7 @@ const SignatureBookDetail = () => {
                             onClick={() => setSigningUserId(p.userId)}
                             className="text-xs text-blue-600 hover:underline no-print"
                           >
-                            {isAdmin && p.userId !== currentUserId ? '대리서명' : '서명하기'}
+                            서명하기
                           </button>
                         ) : (
                           <span className="text-gray-300 text-xs">미서명</span>
@@ -465,7 +465,7 @@ const SignatureBookDetail = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2">
               {isAdmin && signingUserId !== currentUserId
-                ? `대리서명 (${data?.participants.find(p => p.userId === signingUserId)?.name || ''})`
+                ? `서명하기 (${data?.participants.find(p => p.userId === signingUserId)?.name || ''})`
                 : '전자서명'}
             </h2>
             <p className="text-sm text-gray-500 mb-4">아래 공간에 서명해 주세요. 마우스나 손가락으로 서명하세요.</p>
