@@ -165,6 +165,7 @@ model TrainingNotice {
   id          String   @id @default(uuid())
   order       Int      // 순번
   name        String   // 연수명
+  description String?  // 연수 세부 설명
   targetUsers String?  @map("target_users") // 대상자
   hours       String?  // 이수시간
   manager     String?  // 담당자

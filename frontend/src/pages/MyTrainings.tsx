@@ -9,6 +9,13 @@ const MyTrainings = () => {
   const [participants, setParticipants] = useState<TrainingParticipant[]>([])
   const [loading, setLoading] = useState(false)
   const [editingCompletionNumbers, setEditingCompletionNumbers] = useState<Record<string, string>>({})
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
+
+  const isDescLong = (desc: string | null | undefined) =>
+    !!desc && (desc.length > 150 || desc.split('\n').length > 3)
+
+  const toggleDesc = (id: string) =>
+    setExpandedDescriptions(prev => ({ ...prev, [id]: !prev[id] }))
 
   useEffect(() => {
     fetchTrainings()
@@ -95,6 +102,8 @@ const MyTrainings = () => {
             if (!training) return null
 
             const hasDetail = training.description || training.method || training.methodLink || training.manager
+            const descLong = isDescLong(training.description)
+            const descExpanded = expandedDescriptions[participant.id] ?? false
             return (
               <div key={participant.id} className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden ${participant.status !== 'completed' ? 'border-l-yellow-400' : 'border-l-green-400'}`}>
                 {/* 헤더 */}
@@ -123,7 +132,19 @@ const MyTrainings = () => {
                 {hasDetail && (
                   <div className="mx-6 mb-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 space-y-1.5 text-sm text-gray-700">
                     {training.description && (
-                      <p className="whitespace-pre-line leading-relaxed">{training.description}</p>
+                      <div>
+                        <p className={`whitespace-pre-line leading-relaxed ${descLong && !descExpanded ? 'line-clamp-3' : ''}`}>
+                          {training.description}
+                        </p>
+                        {descLong && (
+                          <button
+                            onClick={() => toggleDesc(participant.id)}
+                            className="mt-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            {descExpanded ? '▲ 접기' : '▼ 더 보기'}
+                          </button>
+                        )}
+                      </div>
                     )}
                     {(training.method || training.methodLink) && (
                       <p className="text-gray-500">
