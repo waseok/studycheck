@@ -8,7 +8,10 @@ import {
   TrainingNotice,
 } from '../api/trainingNotices'
 
-const EMPTY_FORM = { order: 1, name: '', targetUsers: '', hours: '', manager: '', method: '' }
+const EMPTY_FORM = { order: 1, name: '', description: '', targetUsers: '', hours: '', manager: '', method: '' }
+
+const isDescLong = (desc: string | null | undefined) =>
+  !!desc && (desc.length > 150 || desc.split('\n').length > 3)
 
 export default function TrainingNoticePage() {
   const [notices, setNotices] = useState<TrainingNotice[]>([])
@@ -18,6 +21,8 @@ export default function TrainingNoticePage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({})
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
   const role = localStorage.getItem('role')
   const isAdmin = role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN'
@@ -50,6 +55,7 @@ export default function TrainingNoticePage() {
       await createTrainingNotice({
         order: formData.order,
         name: formData.name,
+        description: formData.description || null,
         targetUsers: formData.targetUsers || null,
         hours: formData.hours || null,
         manager: formData.manager || null,
@@ -70,6 +76,7 @@ export default function TrainingNoticePage() {
     setEditData({
       order: notice.order,
       name: notice.name,
+      description: notice.description || '',
       targetUsers: notice.targetUsers || '',
       hours: notice.hours || '',
       manager: notice.manager || '',
@@ -84,6 +91,7 @@ export default function TrainingNoticePage() {
       await updateTrainingNotice(editingId!, {
         order: editData.order,
         name: editData.name,
+        description: editData.description || null,
         targetUsers: editData.targetUsers || null,
         hours: editData.hours || null,
         manager: editData.manager || null,
@@ -112,18 +120,21 @@ export default function TrainingNoticePage() {
     isAdmin || notice.createdById === currentUserId
 
   const inputCls = 'w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400'
+  const textareaCls = 'w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none'
 
   return (
     <Layout>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-blue-800 mb-2">📋 연수 안내</h1>
-          <button
-            onClick={() => { setShowAddRow(true); setEditingId(null) }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm"
-          >
-            + 항목 추가
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => { setShowAddRow(true); setEditingId(null) }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm"
+            >
+              + 항목 추가
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -155,79 +166,149 @@ export default function TrainingNoticePage() {
 
                   {notices.map((notice) =>
                     editingId === notice.id ? (
-                      <tr key={notice.id} className="bg-blue-50">
-                        <td className="px-2 py-2">
-                          <input type="number" className={inputCls} value={editData.order} onChange={e => setEditData({ ...editData, order: parseInt(e.target.value) || 1 })} min={1} />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input type="text" className={inputCls} value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} placeholder="연수명 *" />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input type="text" className={inputCls} value={editData.targetUsers} onChange={e => setEditData({ ...editData, targetUsers: e.target.value })} placeholder="대상자" />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input type="text" className={inputCls} value={editData.hours} onChange={e => setEditData({ ...editData, hours: e.target.value })} placeholder="이수시간" />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input type="text" className={inputCls} value={editData.manager} onChange={e => setEditData({ ...editData, manager: e.target.value })} placeholder="담당자" />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input type="text" className={inputCls} value={editData.method} onChange={e => setEditData({ ...editData, method: e.target.value })} placeholder="연수자료 및 방법" />
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-400">{notice.createdBy.name}</td>
-                        <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
-                          <button onClick={handleSaveEdit} disabled={saving} className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400">저장</button>
-                          <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">취소</button>
-                        </td>
-                      </tr>
+                      <>
+                        <tr key={notice.id} className="bg-blue-50">
+                          <td className="px-2 py-2">
+                            <input type="number" className={inputCls} value={editData.order} onChange={e => setEditData({ ...editData, order: parseInt(e.target.value) || 1 })} min={1} />
+                          </td>
+                          <td className="px-2 py-2">
+                            <input type="text" className={inputCls} value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} placeholder="연수명 *" />
+                          </td>
+                          <td className="px-2 py-2">
+                            <input type="text" className={inputCls} value={editData.targetUsers} onChange={e => setEditData({ ...editData, targetUsers: e.target.value })} placeholder="대상자" />
+                          </td>
+                          <td className="px-2 py-2">
+                            <input type="text" className={inputCls} value={editData.hours} onChange={e => setEditData({ ...editData, hours: e.target.value })} placeholder="이수시간" />
+                          </td>
+                          <td className="px-2 py-2">
+                            <input type="text" className={inputCls} value={editData.manager} onChange={e => setEditData({ ...editData, manager: e.target.value })} placeholder="담당자" />
+                          </td>
+                          <td className="px-2 py-2">
+                            <input type="text" className={inputCls} value={editData.method} onChange={e => setEditData({ ...editData, method: e.target.value })} placeholder="연수자료 및 방법" />
+                          </td>
+                          <td className="px-2 py-2 text-xs text-gray-400">{notice.createdBy.name}</td>
+                          <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
+                            <button onClick={handleSaveEdit} disabled={saving} className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400">저장</button>
+                            <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">취소</button>
+                          </td>
+                        </tr>
+                        {/* 편집 중 설명 입력 행 */}
+                        <tr key={`${notice.id}-edit-desc`} className="bg-blue-50">
+                          <td colSpan={8} className="px-4 pb-3">
+                            <label className="block text-xs text-gray-500 mb-1">세부 설명 (선택)</label>
+                            <textarea
+                              className={textareaCls}
+                              rows={4}
+                              value={editData.description}
+                              onChange={e => setEditData({ ...editData, description: e.target.value })}
+                              placeholder="연수 세부 설명을 입력하세요 (선택 사항)"
+                            />
+                          </td>
+                        </tr>
+                      </>
                     ) : (
-                      <tr key={notice.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-center text-sm text-gray-700">{notice.order}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{notice.name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{notice.targetUsers || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{notice.hours || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{notice.manager || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{notice.method || '-'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-400">{notice.createdBy.name}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right space-x-2">
-                          {canEditRow(notice) && (
-                            <>
-                              <button onClick={() => handleStartEdit(notice)} className="text-indigo-600 hover:text-indigo-900 text-sm">수정</button>
-                              <button onClick={() => handleDelete(notice.id)} className="text-red-600 hover:text-red-900 text-sm">삭제</button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
+                      <>
+                        <tr key={notice.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-center text-sm text-gray-700">{notice.order}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            <div className="flex items-center gap-2">
+                              {notice.name}
+                              {notice.description && (
+                                <button
+                                  onClick={() => setExpandedRows(prev => ({ ...prev, [notice.id]: !prev[notice.id] }))}
+                                  className="shrink-0 text-xs text-blue-500 hover:text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100"
+                                  title="세부 설명 보기"
+                                >
+                                  {expandedRows[notice.id] ? '▲ 설명 닫기' : '▼ 설명 보기'}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{notice.targetUsers || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{notice.hours || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{notice.manager || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{notice.method || '-'}</td>
+                          <td className="px-4 py-3 text-xs text-gray-400">{notice.createdBy.name}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right space-x-2">
+                            {canEditRow(notice) && (
+                              <>
+                                <button onClick={() => handleStartEdit(notice)} className="text-indigo-600 hover:text-indigo-900 text-sm">수정</button>
+                                <button onClick={() => handleDelete(notice.id)} className="text-red-600 hover:text-red-900 text-sm">삭제</button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                        {/* 세부 설명 확장 행 */}
+                        {notice.description && expandedRows[notice.id] && (
+                          <tr key={`${notice.id}-desc`}>
+                            <td colSpan={8} className="px-6 py-3 bg-blue-50 border-t border-blue-100">
+                              {(() => {
+                                const long = isDescLong(notice.description)
+                                const expanded = expandedDesc[notice.id] ?? false
+                                return (
+                                  <div>
+                                    <p className={`text-sm text-gray-700 whitespace-pre-line leading-relaxed ${long && !expanded ? 'line-clamp-3' : ''}`}>
+                                      {notice.description}
+                                    </p>
+                                    {long && (
+                                      <button
+                                        onClick={() => setExpandedDesc(prev => ({ ...prev, [notice.id]: !prev[notice.id] }))}
+                                        className="mt-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                      >
+                                        {expanded ? '▲ 접기' : '▼ 더 보기'}
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     )
                   )}
 
                   {/* 추가 입력 행 */}
                   {showAddRow && (
-                    <tr className="bg-green-50">
-                      <td className="px-2 py-2">
-                        <input type="number" className={inputCls} value={formData.order} onChange={e => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })} min={1} />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input type="text" className={inputCls} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="연수명 *" autoFocus />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input type="text" className={inputCls} value={formData.targetUsers} onChange={e => setFormData({ ...formData, targetUsers: e.target.value })} placeholder="대상자" />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input type="text" className={inputCls} value={formData.hours} onChange={e => setFormData({ ...formData, hours: e.target.value })} placeholder="이수시간" />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input type="text" className={inputCls} value={formData.manager} onChange={e => setFormData({ ...formData, manager: e.target.value })} placeholder="담당자" />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input type="text" className={inputCls} value={formData.method} onChange={e => setFormData({ ...formData, method: e.target.value })} placeholder="연수자료 및 방법" />
-                      </td>
-                      <td className="px-2 py-2"></td>
-                      <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
-                        <button onClick={handleAdd} disabled={saving} className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400">저장</button>
-                        <button onClick={() => { setShowAddRow(false); setFormData(EMPTY_FORM) }} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">취소</button>
-                      </td>
-                    </tr>
+                    <>
+                      <tr className="bg-green-50">
+                        <td className="px-2 py-2">
+                          <input type="number" className={inputCls} value={formData.order} onChange={e => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })} min={1} />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input type="text" className={inputCls} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="연수명 *" autoFocus />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input type="text" className={inputCls} value={formData.targetUsers} onChange={e => setFormData({ ...formData, targetUsers: e.target.value })} placeholder="대상자" />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input type="text" className={inputCls} value={formData.hours} onChange={e => setFormData({ ...formData, hours: e.target.value })} placeholder="이수시간" />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input type="text" className={inputCls} value={formData.manager} onChange={e => setFormData({ ...formData, manager: e.target.value })} placeholder="담당자" />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input type="text" className={inputCls} value={formData.method} onChange={e => setFormData({ ...formData, method: e.target.value })} placeholder="연수자료 및 방법" />
+                        </td>
+                        <td className="px-2 py-2"></td>
+                        <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
+                          <button onClick={handleAdd} disabled={saving} className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400">저장</button>
+                          <button onClick={() => { setShowAddRow(false); setFormData(EMPTY_FORM) }} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">취소</button>
+                        </td>
+                      </tr>
+                      <tr className="bg-green-50">
+                        <td colSpan={8} className="px-4 pb-3">
+                          <label className="block text-xs text-gray-500 mb-1">세부 설명 (선택)</label>
+                          <textarea
+                            className={textareaCls}
+                            rows={4}
+                            value={formData.description}
+                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="연수 세부 설명을 입력하세요 (선택 사항)"
+                          />
+                        </td>
+                      </tr>
+                    </>
                   )}
                 </tbody>
               </table>

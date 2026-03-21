@@ -19,6 +19,7 @@ const TrainingCollection = () => {
   const [sortBy, setSortBy] = useState<'default' | 'incomplete'>('default')
   const [filterIncomplete, setFilterIncomplete] = useState(false)
   const [showCompletionHelp, setShowCompletionHelp] = useState(false)
+  const [descExpanded, setDescExpanded] = useState(false)
   const [isManualSort, setIsManualSort] = useState(false)
   const role = getRole()
   const adminUser = isAdmin() || role === 'TRAINING_ADMIN'
@@ -307,9 +308,24 @@ const TrainingCollection = () => {
                 <span>👤 담당자: {training.manager}</span>
               )}
             </div>
-            {training.description && (
-              <p className="text-gray-700 whitespace-pre-line leading-relaxed border-t border-gray-100 pt-2">{training.description}</p>
-            )}
+            {training.description && (() => {
+              const isLong = training.description!.length > 150 || training.description!.split('\n').length > 3
+              return (
+                <div className="border-t border-gray-100 pt-2">
+                  <p className={`text-gray-700 whitespace-pre-line leading-relaxed ${isLong && !descExpanded ? 'line-clamp-3' : ''}`}>
+                    {training.description}
+                  </p>
+                  {isLong && (
+                    <button
+                      onClick={() => setDescExpanded(v => !v)}
+                      className="mt-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {descExpanded ? '▲ 접기' : '▼ 더 보기'}
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
             {(training.method || training.methodLink) && (
               <p className="text-gray-600 border-t border-gray-100 pt-2">
                 <span className="font-medium">📎 연수자료:</span>

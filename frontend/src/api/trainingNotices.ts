@@ -4,6 +4,7 @@ export interface TrainingNotice {
   id: string
   order: number
   name: string
+  description: string | null
   targetUsers: string | null
   hours: string | null
   manager: string | null

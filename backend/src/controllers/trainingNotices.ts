@@ -27,13 +27,14 @@ export const getTrainingNotices = async (_req: Request, res: Response) => {
 
 export const createTrainingNotice = async (req: AuthRequest, res: Response) => {
   try {
-    const { order, name, targetUsers, hours, manager, method } = req.body
+    const { order, name, description, targetUsers, hours, manager, method } = req.body
     if (!name) return res.status(400).json({ error: '연수명을 입력해주세요.' })
 
     const notice = await prisma.trainingNotice.create({
       data: {
         order: parseInt(order) || 1,
         name,
+        description: description || null,
         targetUsers: targetUsers || null,
         hours: hours || null,
         manager: manager || null,
@@ -52,7 +53,7 @@ export const createTrainingNotice = async (req: AuthRequest, res: Response) => {
 export const updateTrainingNotice = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
-    const { order, name, targetUsers, hours, manager, method } = req.body
+    const { order, name, description, targetUsers, hours, manager, method } = req.body
     if (!name) return res.status(400).json({ error: '연수명을 입력해주세요.' })
 
     const notice = await prisma.trainingNotice.update({
@@ -60,6 +61,7 @@ export const updateTrainingNotice = async (req: AuthRequest, res: Response) => {
       data: {
         order: parseInt(order) || 1,
         name,
+        description: description || null,
         targetUsers: targetUsers || null,
         hours: hours || null,
         manager: manager || null,
