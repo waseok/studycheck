@@ -5,6 +5,7 @@ export interface SignaturePadRef {
   isEmpty: () => boolean
   clear: () => void
   toDataURL: () => string
+  loadDataURL: (dataURL: string) => void
 }
 
 const SignaturePad = forwardRef<SignaturePadRef>((_, ref) => {
@@ -51,6 +52,11 @@ const SignaturePad = forwardRef<SignaturePadRef>((_, ref) => {
       }
     },
     toDataURL: () => padRef.current?.toDataURL('image/png') ?? '',
+    loadDataURL: (dataURL: string) => {
+      if (padRef.current) {
+        padRef.current.fromDataURL(dataURL)
+      }
+    },
   }))
 
   return (

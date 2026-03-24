@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import Layout from '../components/Layout'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
-import { getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, SignatureBookData, SignatureParticipant } from '../api/signatures'
+import { getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, getSavedSignature, saveSavedSignature, SignatureBookData, SignatureParticipant } from '../api/signatures'
 
 const SignatureBookDetail = () => {
   const { trainingId } = useParams<{ trainingId: string }>()
@@ -17,6 +17,8 @@ const SignatureBookDetail = () => {
   const [exporting, setExporting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [customOrder, setCustomOrder] = useState<string[] | null>(null)
+  const [savedSignature, setSavedSignature] = useState<string | null>(null)
+  const [savingSignature, setSavingSignature] = useState(false)
 
   const printRef = useRef<HTMLDivElement>(null)
   const signaturePadRef = useRef<SignaturePadRef>(null)
@@ -52,6 +54,40 @@ const SignatureBookDetail = () => {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // 페이지 로드 시 저장된 서명 불러오기
+  useEffect(() => {
+    getSavedSignature().then(sig => setSavedSignature(sig)).catch(() => {})
+  }, [])
+
+  // 본인 서명 모달 열릴 때 저장된 서명 자동 로드
+  useEffect(() => {
+    if (signingUserId && signingUserId === currentUserId && savedSignature) {
+      // 캔버스가 마운트된 후 로드되도록 약간 지연
+      const timer = setTimeout(() => {
+        signaturePadRef.current?.loadDataURL(savedSignature)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [signingUserId, currentUserId, savedSignature])
+
+  const handleSaveMySignature = async () => {
+    if (!signaturePadRef.current || signaturePadRef.current.isEmpty()) {
+      alert('저장할 서명이 없습니다.')
+      return
+    }
+    setSavingSignature(true)
+    try {
+      const imageData = signaturePadRef.current.toDataURL()
+      await saveSavedSignature(imageData)
+      setSavedSignature(imageData)
+      alert('서명이 저장되었습니다. 다음부터 자동으로 불러옵니다.')
+    } catch {
+      alert('서명 저장에 실패했습니다.')
+    } finally {
+      setSavingSignature(false)
+    }
+  }
 
   const handleSign = async () => {
     if (!signaturePadRef.current || !trainingId || !signingUserId) return
@@ -469,8 +505,34 @@ const SignatureBookDetail = () => {
                 : '전자서명'}
             </h2>
             <p className="text-sm text-gray-500 mb-4">아래 공간에 서명해 주세요. 마우스나 손가락으로 서명하세요.</p>
+            {/* 저장된 서명 불러오기 버튼 (본인 서명 시에만 표시) */}
+            {signingUserId === currentUserId && savedSignature && (
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs text-gray-500">저장된 서명이 자동으로 불러와졌습니다.</span>
+                <button
+                  type="button"
+                  onClick={() => signaturePadRef.current?.loadDataURL(savedSignature)}
+                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-300"
+                >
+                  다시 불러오기
+                </button>
+              </div>
+            )}
             <SignaturePad ref={signaturePadRef} />
-            <div className="flex gap-3 mt-4">
+            {/* 내 서명 저장 버튼 (본인 서명 시에만 표시) */}
+            {signingUserId === currentUserId && (
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveMySignature}
+                  disabled={savingSignature}
+                  className="text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded border border-amber-300 disabled:opacity-50"
+                >
+                  {savingSignature ? '저장 중...' : '이 서명 저장해두기'}
+                </button>
+              </div>
+            )}
+            <div className="flex gap-3 mt-3">
               <button
                 type="button"
                 onClick={() => signaturePadRef.current?.clear()}
