@@ -47,6 +47,53 @@ export const getMyProfile = async (req: Request, res: Response) => {
   }
 }
 
+// 저장된 서명 조회
+export const getSavedSignature = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+    if (!userId) return res.status(401).json({ error: '인증이 필요합니다.' })
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { savedSignature: true }
+    })
+
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+
+    res.json({ savedSignature: user.savedSignature || null })
+  } catch (error) {
+    console.error('Get saved signature error:', error)
+    res.status(500).json({ error: '저장된 서명 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+// 저장된 서명 업데이트
+export const updateSavedSignature = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+    if (!userId) return res.status(401).json({ error: '인증이 필요합니다.' })
+
+    const { signatureImage } = req.body as { signatureImage: string | null }
+
+    // null이면 서명 삭제, 아니면 유효성 검사
+    if (signatureImage !== null && signatureImage !== undefined) {
+      if (typeof signatureImage !== 'string' || !signatureImage.startsWith('data:image/')) {
+        return res.status(400).json({ error: '올바른 서명 이미지 형식이 아닙니다.' })
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { savedSignature: signatureImage ?? null }
+    })
+
+    res.json({ success: true, message: signatureImage ? '서명이 저장되었습니다.' : '서명이 삭제되었습니다.' })
+  } catch (error) {
+    console.error('Update saved signature error:', error)
+    res.status(500).json({ error: '서명 저장 중 오류가 발생했습니다.' })
+  }
+}
+
 // 현재 로그인한 사용자 정보 수정 (본인)
 export const updateMyProfile = async (req: Request, res: Response) => {
   try {

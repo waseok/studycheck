@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetUserPin, bulkCreateUsers, downloadTemplate, getMyProfile, updateMyProfile } from '../controllers/users'
+import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetUserPin, bulkCreateUsers, downloadTemplate, getMyProfile, updateMyProfile, getSavedSignature, updateSavedSignature } from '../controllers/users'
 import { authMiddleware, adminMiddleware } from '../middleware/auth'
 
 const router = Router()
@@ -32,6 +32,8 @@ const upload = multer({
 router.get('/', authMiddleware, adminMiddleware, getUsers)
 router.get('/me', authMiddleware, getMyProfile) // 현재 사용자 정보 조회
 router.put('/me', authMiddleware, updateMyProfile) // 현재 사용자 정보 수정
+router.get('/me/saved-signature', authMiddleware, getSavedSignature) // 저장된 서명 조회
+router.put('/me/saved-signature', authMiddleware, updateSavedSignature) // 저장된 서명 저장/삭제
 router.get('/template', authMiddleware, adminMiddleware, downloadTemplate)
 router.post('/', authMiddleware, adminMiddleware, createUser)
 router.post('/bulk', authMiddleware, adminMiddleware, upload.single('file'), bulkCreateUsers)

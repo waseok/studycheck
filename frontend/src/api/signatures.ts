@@ -1,5 +1,14 @@
 import apiClient from './client'
 
+export const getSavedSignature = async (): Promise<string | null> => {
+  const response = await apiClient.get<{ savedSignature: string | null }>('/users/me/saved-signature')
+  return response.data.savedSignature
+}
+
+export const saveSavedSignature = async (signatureImage: string | null): Promise<void> => {
+  await apiClient.put('/users/me/saved-signature', { signatureImage })
+}
+
 export interface SignatureInfo {
   id: string
   signatureImage: string
