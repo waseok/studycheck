@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { getMeetings, createMeeting, deleteMeeting, Meeting } from '../api/meetings'
+import { getMeetings, createMeeting, deleteMeeting, completeMeeting, Meeting } from '../api/meetings'
 import { getUsers } from '../api/users'
 import { User } from '../types'
 
@@ -17,6 +17,7 @@ const MeetingList = () => {
   const [userSearch, setUserSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [duplicating, setDuplicating] = useState<string | null>(null)
+  const [completing, setCompleting] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const role = localStorage.getItem('role') as string | null
@@ -83,6 +84,20 @@ const MeetingList = () => {
     }
   }
 
+  const handleComplete = async (m: Meeting) => {
+    const action = m.isCompleted ? '다시 진행 중으로' : '완료'
+    if (!confirm(`"${m.name}"을 ${action} 처리하시겠습니까?`)) return
+    setCompleting(m.id)
+    try {
+      await completeMeeting(m.id, !m.isCompleted)
+      await fetchMeetings()
+    } catch {
+      setError('처리에 실패했습니다.')
+    } finally {
+      setCompleting(null)
+    }
+  }
+
   const handleDuplicate = async (m: Meeting) => {
     if (duplicating) return
     setDuplicating(m.id)
@@ -125,6 +140,16 @@ const MeetingList = () => {
     >
       {isAdmin && (
         <div className="absolute top-3 right-3 flex items-center gap-1">
+          <button
+            onClick={e => { e.stopPropagation(); handleComplete(m) }}
+            className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+              m.isCompleted
+                ? 'text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300'
+                : 'text-gray-300 hover:text-green-600 border border-gray-200 hover:border-green-400'
+            }`}
+            title={m.isCompleted ? '완료 취소' : '완료 처리'}
+            disabled={completing === m.id}
+          >{completing === m.id ? '⏳' : m.isCompleted ? '↩' : '✓'}</button>
           <button
             onClick={e => { e.stopPropagation(); handleDuplicate(m) }}
             className="text-gray-300 hover:text-blue-500 text-sm px-1"
