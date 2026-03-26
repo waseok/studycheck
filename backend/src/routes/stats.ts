@@ -1,12 +1,12 @@
 import { Router } from 'express'
 import { getTrainingStats, getUserStats, getIncompleteList } from '../controllers/stats'
-import { authMiddleware, adminMiddleware } from '../middleware/auth'
+import { authMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 
 const router = Router()
 
-router.get('/training/:trainingId', authMiddleware, adminMiddleware, getTrainingStats)
-router.get('/user/:userId', authMiddleware, adminMiddleware, getUserStats)
-router.get('/incomplete', authMiddleware, adminMiddleware, getIncompleteList)
+router.get('/training/:trainingId', authMiddleware, trainingAdminMiddleware, getTrainingStats)
+router.get('/user/:userId', authMiddleware, trainingAdminMiddleware, getUserStats)
+router.get('/incomplete', authMiddleware, trainingAdminMiddleware, getIncompleteList)
 
 export default router
 
