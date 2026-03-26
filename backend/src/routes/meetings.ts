@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authMiddleware, adminMiddleware } from '../middleware/auth'
+import { authMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 import {
   getMeetings, getMeeting, createMeeting, updateMeeting,
   deleteMeeting, completeMeeting, addParticipants, removeParticipant,
@@ -10,13 +10,13 @@ const router = Router()
 
 router.get('/', authMiddleware, getMeetings)
 router.get('/:id', authMiddleware, getMeeting)
-router.post('/', authMiddleware, adminMiddleware, createMeeting)
-router.put('/:id', authMiddleware, adminMiddleware, updateMeeting)
-router.put('/:id/complete', authMiddleware, adminMiddleware, completeMeeting)
-router.delete('/:id', authMiddleware, adminMiddleware, deleteMeeting)
-router.post('/:id/participants', authMiddleware, adminMiddleware, addParticipants)
-router.delete('/:id/participants/:userId', authMiddleware, adminMiddleware, removeParticipant)
+router.post('/', authMiddleware, trainingAdminMiddleware, createMeeting)
+router.put('/:id', authMiddleware, trainingAdminMiddleware, updateMeeting)
+router.put('/:id/complete', authMiddleware, trainingAdminMiddleware, completeMeeting)
+router.delete('/:id', authMiddleware, trainingAdminMiddleware, deleteMeeting)
+router.post('/:id/participants', authMiddleware, trainingAdminMiddleware, addParticipants)
+router.delete('/:id/participants/:userId', authMiddleware, trainingAdminMiddleware, removeParticipant)
 router.post('/:id/signature', authMiddleware, saveMeetingSignature)
-router.delete('/:id/signature/:userId', authMiddleware, adminMiddleware, deleteMeetingSignature)
+router.delete('/:id/signature/:userId', authMiddleware, trainingAdminMiddleware, deleteMeetingSignature)
 
 export default router
