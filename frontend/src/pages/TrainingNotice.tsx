@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import {
   getTrainingNotices,
@@ -24,6 +25,7 @@ export default function TrainingNoticePage() {
   const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
+  const navigate = useNavigate()
   const role = localStorage.getItem('role')
   const isAdmin = role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN'
   const currentUserId = (() => {
@@ -212,7 +214,13 @@ export default function TrainingNoticePage() {
                           <td className="px-4 py-3 text-center text-sm text-gray-700">{notice.order}</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">
                             <div className="flex items-center gap-2">
-                              {notice.name}
+                              <button
+                                onClick={() => navigate(`/dashboard/my-trainings?name=${encodeURIComponent(notice.name)}`)}
+                                className="text-blue-700 hover:text-blue-900 hover:underline text-left font-medium"
+                                title="내 연수에서 이수번호 입력하기"
+                              >
+                                {notice.name}
+                              </button>
                               {notice.description && (
                                 <button
                                   onClick={() => setExpandedRows(prev => ({ ...prev, [notice.id]: !prev[notice.id] }))}

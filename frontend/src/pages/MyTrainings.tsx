@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { getMyTrainings, updateCompletionNumber, cancelCompletion } from '../api/participants'
 import { TrainingParticipant } from '../types'
 
 const MyTrainings = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const targetName = searchParams.get('name')
   const [participants, setParticipants] = useState<TrainingParticipant[]>([])
   const [loading, setLoading] = useState(false)
   const [editingCompletionNumbers, setEditingCompletionNumbers] = useState<Record<string, string>>({})
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const isDescLong = (desc: string | null | undefined) =>
     !!desc && (desc.length > 150 || desc.split('\n').length > 3)
@@ -32,6 +36,18 @@ const MyTrainings = () => {
         return 0
       })
       setParticipants(sorted)
+      // name 파라미터와 일치하는 연수 하이라이트
+      if (targetName) {
+        const matched = sorted.find(p => p.training?.name === targetName)
+        if (matched) {
+          setHighlightedId(matched.id)
+          setTimeout(() => {
+            cardRefs.current[matched.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            // 3초 후 하이라이트 제거
+            setTimeout(() => setHighlightedId(null), 3000)
+          }, 300)
+        }
+      }
     } catch (error) {
       console.error('내 연수 목록 조회 오류:', error)
     } finally {
@@ -105,7 +121,11 @@ const MyTrainings = () => {
             const descLong = isDescLong(training.description)
             const descExpanded = expandedDescriptions[participant.id] ?? false
             return (
-              <div key={participant.id} className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden ${participant.status !== 'completed' ? 'border-l-yellow-400' : 'border-l-green-400'}`}>
+              <div
+                key={participant.id}
+                ref={el => { cardRefs.current[participant.id] = el }}
+                className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden transition-all duration-500 ${participant.status !== 'completed' ? 'border-l-yellow-400' : 'border-l-green-400'} ${highlightedId === participant.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+              >
                 {/* 헤더 */}
                 <div className="px-6 pt-5 pb-4">
                   <div className="flex justify-between items-start gap-3">
