@@ -16,6 +16,7 @@ const MeetingList = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [modalError, setModalError] = useState('')
   const [duplicating, setDuplicating] = useState<string | null>(null)
   const [completing, setCompleting] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -67,8 +68,9 @@ const MeetingList = () => {
       setSelectedUserIds([])
       setUserSearch('')
       navigate(`/dashboard/meetings/${meeting.id}`)
-    } catch {
-      setError('회의 생성에 실패했습니다.')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || '회의 생성에 실패했습니다.'
+      setModalError(msg)
     } finally {
       setSaving(false)
     }
@@ -332,10 +334,13 @@ const MeetingList = () => {
                 </div>
               </div>
 
+              {modalError && (
+                <div className="px-6 py-3 bg-red-50 border-t border-red-100 text-red-600 text-sm">{modalError}</div>
+              )}
               <div className="p-6 border-t border-gray-100 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setShowCreate(false); setForm({ name: '', agenda: '', date: '', location: '' }); setSelectedUserIds([]) }}
+                  onClick={() => { setShowCreate(false); setForm({ name: '', agenda: '', date: '', location: '' }); setSelectedUserIds([]); setModalError('') }}
                   className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 >
                   취소

@@ -232,7 +232,7 @@ const Login = () => {
             className="w-28 h-28 object-contain"
           />
           <h2 className="mt-4 text-center text-2xl font-extrabold text-gray-900 leading-snug">
-            와석초 의무연수 안내<br />취합 통합 플랫폼
+            와석초 연수 관리 통합 플랫폼
           </h2>
         </div>
 
