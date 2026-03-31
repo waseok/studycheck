@@ -13,7 +13,7 @@ interface Training {
   isCompleted: boolean
   targetUsers: string[]
   registrationBook: string | null
-  participants: { id: string }[]
+  participants: { id: string; status: string }[]
 }
 
 const SignatureBook = () => {
@@ -56,7 +56,11 @@ const SignatureBook = () => {
         <p>👤 담당: {t.manager}</p>
         {t.implementationDate && <p>📅 {t.implementationDate}</p>}
         <p className={t.isCompleted ? 'text-gray-500 font-medium' : 'text-blue-600 font-medium'}>
-          참여자 {t.participants?.length ?? 0}명
+          {(() => {
+            const total = t.participants?.length ?? 0
+            const signed = t.participants?.filter(p => p.status === 'completed').length ?? 0
+            return signed > 0 ? `서명 ${signed}/${total}명` : `참여자 ${total}명`
+          })()}
         </p>
       </div>
       <div className="mt-3 pt-3 border-t border-gray-100">

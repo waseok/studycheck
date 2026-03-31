@@ -169,7 +169,11 @@ const MeetingList = () => {
         {m.location && <p>📍 {m.location}</p>}
         {m.agenda && <p className="text-gray-500 text-xs line-clamp-2">📋 {m.agenda}</p>}
         <p className={m.isCompleted ? 'text-gray-400 font-medium' : 'text-green-600 font-medium'}>
-          참가자 {m.participants?.length ?? 0}명
+          {(() => {
+            const total = m.participants?.length ?? 0
+            const signed = m._count?.signatures ?? 0
+            return signed > 0 ? `서명 ${signed}/${total}명` : `참가자 ${total}명`
+          })()}
         </p>
       </div>
       <div className="mt-3 pt-3 border-t border-gray-100">
