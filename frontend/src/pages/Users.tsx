@@ -377,12 +377,67 @@ const Users = () => {
     (u.name.includes(groupMemberSearch) || u.userType.includes(groupMemberSearch) || (u.position || '').includes(groupMemberSearch))
   )
 
+  const getPositionOrder = (position: string | null, userType: string): number => {
+    if (!position) {
+      if (userType === '교원' || userType === '기간제교사') return 5
+      return 6
+    }
+    const p = position.toLowerCase()
+    if (p.includes('교장')) return 0
+    if (p.includes('교감')) return 1
+    if (p.includes('담임') || p.includes('학급')) return 2
+    if (p.includes('전담') || p.includes('교과')) return 3
+    if (p.includes('유치')) return 4
+    if (userType === '교원' || userType === '기간제교사') return 5
+    return 6
+  }
+
+  const sortedUsers = [...users].sort((a, b) => {
+    const orderA = getPositionOrder(a.position ?? null, a.userType)
+    const orderB = getPositionOrder(b.position ?? null, b.userType)
+    if (orderA !== orderB) return orderA - orderB
+    const gradeA = parseInt(a.grade ?? '99')
+    const gradeB = parseInt(b.grade ?? '99')
+    if (gradeA !== gradeB) return gradeA - gradeB
+    const classA = parseInt(a.class ?? '99')
+    const classB = parseInt(b.class ?? '99')
+    if (classA !== classB) return classA - classB
+    return a.name.localeCompare(b.name, 'ko')
+  })
+
   return (
     <Layout>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-blue-800 mb-6">👥 교직원 관리</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            {selectedIds.size > 0 && groups.length > 0 && (
+              <div className="relative group">
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                  그룹에 추가 ({selectedIds.size}명) ▾
+                </button>
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-36 hidden group-hover:block">
+                  {groups.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={async () => {
+                        try {
+                          await addGroupMembers(g.id, Array.from(selectedIds))
+                          await fetchGroups()
+                          setSelectedIds(new Set())
+                          alert(`"${g.name}" 그룹에 ${selectedIds.size}명 추가됐습니다.`)
+                        } catch (err: any) {
+                          alert(err.response?.data?.error || '추가 중 오류가 발생했습니다.')
+                        }
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {selectedIds.size > 0 && (
               <button
                 onClick={handleBulkDelete}
@@ -556,7 +611,7 @@ const Users = () => {
                   <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
-                      checked={users.length > 0 && selectedIds.size === users.length}
+                      checked={sortedUsers.length > 0 && selectedIds.size === sortedUsers.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4 cursor-pointer"
                     />
@@ -573,7 +628,7 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
+                {sortedUsers.map((user) => (
                   <tr key={user.id} className={selectedIds.has(user.id) ? 'bg-red-50' : ''}>
                     <td className="px-4 py-4">
                       <input
