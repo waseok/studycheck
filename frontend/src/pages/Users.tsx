@@ -397,19 +397,16 @@ const Users = () => {
       const p = (u.position ?? '').toLowerCase()
       const t = u.userType
       const hasGrade = !!u.grade && u.grade.trim() !== ''
+      // userType 먼저 확정 — 직위에 '전담' 등이 있어도 공무직은 아래로
+      if (t === '직원') return 6
+      if (t === '공무직' || t === '교육공무직') return 7
+      // 교원/기간제 직위 체계
       if (p.includes('교장')) return 0
       if (p.includes('교감')) return 1
-      // 학년 담임 (grade 있는 경우)
       if ((p.includes('담임') || p.includes('학급')) && hasGrade) return 2
       if (p.includes('전담') || p.includes('교과')) return 3
-      // 일반 교원 (담임/전담/교장/교감 아닌 교원, 기간제)
       if (t === '교원' || t === '기간제교사') return 4
-      // 유치원 담임 포함 유치원 관련
       if (p.includes('유치') || t.includes('유치')) return 5
-      // 직원 (행정실 포함)
-      if (t === '직원') return 6
-      // 공무직
-      if (t === '공무직' || t === '교육공무직') return 7
       return 8
     }
     const orderA = getOrder(a)

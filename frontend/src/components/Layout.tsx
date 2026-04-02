@@ -62,10 +62,11 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
 
           {/* 2행: 메뉴 (데스크톱) */}
-          <div className="hidden md:flex items-end gap-1 pb-1 overflow-x-auto">
+          <div className="hidden md:flex items-stretch gap-1 pb-1 overflow-x-auto">
+            {/* 단일행 메뉴 공통 클래스: h-12 flex items-center */}
             <Link
               to="/dashboard/training-notice"
-              className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/training-notice') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+              className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/training-notice') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
             >
               📋 연수 안내
             </Link>
@@ -73,7 +74,7 @@ const Layout = ({ children }: LayoutProps) => {
             {role === 'SUPER_ADMIN' && (
               <Link
                 to="/dashboard/users"
-                className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/users') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+                className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/users') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
               >
                 👥 교직원 관리
               </Link>
@@ -82,33 +83,33 @@ const Layout = ({ children }: LayoutProps) => {
             {(role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN') && (
               <Link
                 to="/dashboard/trainings"
-                className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/trainings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+                className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/trainings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
               >
                 📖 연수 관리
               </Link>
             )}
 
-            {/* 연수등록부 (2줄) */}
+            {/* 연수등록부 — 2줄이지만 h-12로 높이 고정 */}
             <Link
               to="/dashboard/signature-book"
-              className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isStartsWith('/dashboard/signature-book') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+              className={`flex flex-col justify-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap leading-tight ${isStartsWith('/dashboard/signature-book') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
             >
               <span>✍️ 연수등록부</span>
-              <span className={`text-xs font-medium mt-0.5 ${isStartsWith('/dashboard/signature-book') ? 'text-blue-100' : 'text-blue-400'}`}>서명하기</span>
+              <span className={`text-xs font-medium leading-none ${isStartsWith('/dashboard/signature-book') ? 'text-blue-100' : 'text-blue-400'}`}>서명하기</span>
             </Link>
 
-            {/* 회의등록부 (2줄) */}
+            {/* 회의등록부 — 2줄이지만 h-12로 높이 고정 */}
             <Link
               to="/dashboard/meetings"
-              className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isStartsWith('/dashboard/meetings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+              className={`flex flex-col justify-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap leading-tight ${isStartsWith('/dashboard/meetings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
             >
               <span>📝 회의등록부</span>
-              <span className={`text-xs font-medium mt-0.5 ${isStartsWith('/dashboard/meetings') ? 'text-blue-100' : 'text-blue-400'}`}>서명하기</span>
+              <span className={`text-xs font-medium leading-none ${isStartsWith('/dashboard/meetings') ? 'text-blue-100' : 'text-blue-400'}`}>서명하기</span>
             </Link>
 
             <Link
               to="/dashboard/my-trainings"
-              className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/my-trainings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+              className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/my-trainings') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
             >
               ✏️ 내 연수
             </Link>
@@ -116,7 +117,7 @@ const Layout = ({ children }: LayoutProps) => {
             {(role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN') && (
               <Link
                 to="/dashboard/stats"
-                className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/stats') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+                className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/stats') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
               >
                 📊 통계
               </Link>
@@ -124,7 +125,7 @@ const Layout = ({ children }: LayoutProps) => {
 
             <Link
               to="/dashboard/profile"
-              className={`flex flex-col items-center px-4 py-2 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/profile') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+              className={`flex items-center px-4 h-12 rounded-t-lg text-base font-bold transition-all whitespace-nowrap ${isActive('/dashboard/profile') ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
             >
               👤 내 정보
             </Link>
