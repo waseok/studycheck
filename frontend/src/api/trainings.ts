@@ -8,6 +8,7 @@ export const getTrainings = async (): Promise<Training[]> => {
 
 export const createTraining = async (data: {
   name: string
+  description?: string
   registrationBook?: string
   cycle?: string
   targetUsers: string[]
@@ -27,16 +28,17 @@ export const updateTraining = async (
   id: string,
   data: Partial<{
     name: string
-    registrationBook?: string
-    cycle?: string
+    description: string
+    registrationBook: string
+    cycle: string
     targetUsers: string[]
-    hours?: string
-    implementationDate?: string
-    department?: string
+    hours: string
+    implementationDate: string
+    department: string
     manager: string
-    method?: string
-    methodLink?: string
-    deadline?: string
+    method: string
+    methodLink: string
+    deadline: string
   }>
 ): Promise<Training> => {
   const response = await apiClient.put<Training>(`/trainings/${id}`, data)

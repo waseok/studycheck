@@ -161,7 +161,7 @@ export const updateTraining = async (req: Request, res: Response) => {
 
     // targetUsers가 변경된 경우 참여자 재매칭
     if (targetUsers !== undefined && Array.isArray(targetUsers)) {
-      // 트랜잭션으로 안전하게 처리
+      // 트랜잭션으로 안전하게 처리 (타임아웃 30초로 확장)
       await prisma.$transaction(async (tx) => {
         // 기존 참여자 조회 (이수번호가 있는 것 보존)
         const existingParticipants = await tx.trainingParticipant.findMany({
@@ -188,7 +188,7 @@ export const updateTraining = async (req: Request, res: Response) => {
           const toDelete = existingParticipants.filter(
             p => !matchingUserIds.has(p.userId)
           )
-          
+
           if (toDelete.length > 0) {
             await tx.trainingParticipant.deleteMany({
               where: {
@@ -199,23 +199,17 @@ export const updateTraining = async (req: Request, res: Response) => {
             })
           }
 
-          // 새로운 참여자 생성 또는 업데이트 (기존 이수번호 보존)
-          for (const user of matchingUsers) {
-            const existing = existingMap.get(user.id)
-            
-            if (existing) {
-              // 이미 존재하는 경우 업데이트하지 않음 (이수번호 보존)
-              continue
-            } else {
-              // 새로 추가되는 경우만 생성
-              await tx.trainingParticipant.create({
-                data: {
-                  trainingId: id,
-                  userId: user.id,
-                  status: 'pending'
-                }
-              })
-            }
+          // 새로 추가되는 사용자만 필터링 후 createMany로 일괄 생성 (이수번호 보존)
+          const newUsers = matchingUsers.filter(user => !existingMap.has(user.id))
+          if (newUsers.length > 0) {
+            await tx.trainingParticipant.createMany({
+              data: newUsers.map(user => ({
+                trainingId: id,
+                userId: user.id,
+                status: 'pending'
+              })),
+              skipDuplicates: true
+            })
           }
         } else {
           // targetUsers가 빈 배열이면 모든 참여자 삭제
@@ -223,7 +217,7 @@ export const updateTraining = async (req: Request, res: Response) => {
             where: { trainingId: id }
           })
         }
-      })
+      }, { timeout: 30000 })
     }
 
     // 업데이트된 연수 정보 반환
