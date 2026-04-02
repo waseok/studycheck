@@ -34,6 +34,7 @@ model User {
   meetingParticipants MeetingParticipant[]
   meetingSignatures   MeetingSignature[]
   createdMeetings     Meeting[]
+  staffGroupMembers   StaffGroupMember[]
 
   @@map("users")
 }
@@ -144,6 +145,29 @@ model MeetingSignature {
 
   @@unique([meetingId, userId])
   @@map("meeting_signatures")
+}
+
+model StaffGroup {
+  id        String   @id @default(uuid())
+  name      String   // 그룹명
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members StaffGroupMember[]
+
+  @@map("staff_groups")
+}
+
+model StaffGroupMember {
+  id      String @id @default(uuid())
+  groupId String @map("group_id")
+  userId  String @map("user_id")
+
+  group StaffGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("staff_group_members")
 }
 
 model TrainingReminder {

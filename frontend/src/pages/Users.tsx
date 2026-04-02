@@ -5,8 +5,10 @@ import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin
 import { cleanupDuplicates } from '../api/participants'
 import { isAdmin } from '../api/auth'
 import { User } from '../types'
+import { getGroups, createGroup, updateGroup, deleteGroup, addGroupMembers, removeGroupMember, StaffGroup } from '../api/groups'
 
 const Users = () => {
+  const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -15,6 +17,16 @@ const Users = () => {
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number; details?: string[] } | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // 그룹 관련 상태
+  const [groups, setGroups] = useState<StaffGroup[]>([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<StaffGroup | null>(null)
+  const [showGroupModal, setShowGroupModal] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<StaffGroup | null>(null)
+  const [groupName, setGroupName] = useState('')
+  const [groupMemberSearch, setGroupMemberSearch] = useState('')
+  const [groupSaving, setGroupSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -40,7 +52,84 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers()
+    fetchGroups()
   }, [])
+
+  const fetchGroups = async () => {
+    setGroupsLoading(true)
+    try {
+      const data = await getGroups()
+      setGroups(data)
+    } catch (error) {
+      console.error('fetchGroups error:', error)
+    } finally {
+      setGroupsLoading(false)
+    }
+  }
+
+  const handleCreateGroup = () => {
+    setEditingGroup(null)
+    setGroupName('')
+    setShowGroupModal(true)
+  }
+
+  const handleEditGroup = (group: StaffGroup) => {
+    setEditingGroup(group)
+    setGroupName(group.name)
+    setShowGroupModal(true)
+  }
+
+  const handleSaveGroup = async () => {
+    if (!groupName.trim()) return
+    setGroupSaving(true)
+    try {
+      if (editingGroup) {
+        await updateGroup(editingGroup.id, groupName.trim())
+      } else {
+        await createGroup(groupName.trim())
+      }
+      setShowGroupModal(false)
+      await fetchGroups()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '저장 중 오류가 발생했습니다.')
+    } finally {
+      setGroupSaving(false)
+    }
+  }
+
+  const handleDeleteGroup = async (group: StaffGroup) => {
+    if (!confirm(`"${group.name}" 그룹을 삭제하시겠습니까?`)) return
+    try {
+      await deleteGroup(group.id)
+      if (selectedGroup?.id === group.id) setSelectedGroup(null)
+      await fetchGroups()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleAddGroupMember = async (userId: string) => {
+    if (!selectedGroup) return
+    try {
+      const updated = await addGroupMembers(selectedGroup.id, [userId])
+      setSelectedGroup(updated)
+      await fetchGroups()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '멤버 추가 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleRemoveGroupMember = async (userId: string) => {
+    if (!selectedGroup) return
+    try {
+      await removeGroupMember(selectedGroup.id, userId)
+      const updated = { ...selectedGroup, members: selectedGroup.members.filter(m => m.userId !== userId) }
+      setSelectedGroup(updated)
+      await fetchGroups()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '멤버 제거 중 오류가 발생했습니다.')
+    }
+  }
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -282,6 +371,12 @@ const Users = () => {
     }
   }
 
+  const groupMemberIds = new Set(selectedGroup?.members.map(m => m.userId) ?? [])
+  const filteredUsersForGroup = users.filter(u =>
+    !groupMemberIds.has(u.id) &&
+    (u.name.includes(groupMemberSearch) || u.userType.includes(groupMemberSearch) || (u.position || '').includes(groupMemberSearch))
+  )
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -327,9 +422,132 @@ const Users = () => {
           </div>
         </div>
 
-        {loading ? (
+        {/* 탭 */}
+        <div className="flex border-b border-gray-200 mb-4">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-6 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            교직원 목록
+          </button>
+          <button
+            onClick={() => setActiveTab('groups')}
+            className={`px-6 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'groups' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            그룹 관리
+          </button>
+        </div>
+
+        {/* 그룹 관리 탭 */}
+        {activeTab === 'groups' && (
+          <div className="flex gap-4" style={{ minHeight: '500px' }}>
+            {/* 그룹 목록 */}
+            <div className="w-64 flex-shrink-0">
+              <div className="flex justify-between items-center mb-3">
+                <span className="font-semibold text-gray-700">그룹 목록</span>
+                {isAdmin() && (
+                  <button onClick={handleCreateGroup} className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                    + 새 그룹
+                  </button>
+                )}
+              </div>
+              {groupsLoading ? (
+                <div className="text-center py-8 text-gray-400">로딩 중...</div>
+              ) : groups.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">그룹이 없습니다</div>
+              ) : (
+                <div className="space-y-1">
+                  {groups.map(g => (
+                    <div
+                      key={g.id}
+                      onClick={() => { setSelectedGroup(g); setGroupMemberSearch('') }}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer ${selectedGroup?.id === g.id ? 'bg-blue-50 border-2 border-blue-300' : 'border-2 border-transparent hover:bg-gray-50'}`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{g.name}</p>
+                        <p className="text-xs text-gray-400">{g.members.length}명</p>
+                      </div>
+                      {isAdmin() && (
+                        <div className="flex gap-1">
+                          <button onClick={e => { e.stopPropagation(); handleEditGroup(g) }} className="text-gray-400 hover:text-blue-600 text-xs px-1">수정</button>
+                          <button onClick={e => { e.stopPropagation(); handleDeleteGroup(g) }} className="text-gray-400 hover:text-red-600 text-xs px-1">삭제</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 그룹 상세 */}
+            <div className="flex-1 bg-white rounded-2xl border-2 border-gray-200 p-4">
+              {!selectedGroup ? (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  좌측에서 그룹을 선택하세요
+                </div>
+              ) : (
+                <div className="flex gap-4 h-full">
+                  {/* 현재 멤버 */}
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-700 mb-3">
+                      "{selectedGroup.name}" 멤버 ({selectedGroup.members.length}명)
+                    </h3>
+                    {selectedGroup.members.length === 0 ? (
+                      <p className="text-gray-400 text-sm">멤버가 없습니다. 우측에서 추가하세요.</p>
+                    ) : (
+                      <div className="space-y-1 max-h-96 overflow-y-auto">
+                        {selectedGroup.members.map(m => (
+                          <div key={m.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{m.user.name}</span>
+                              <span className="text-xs text-gray-500 ml-2">{m.user.userType}{m.user.position ? ` · ${m.user.position}` : ''}</span>
+                            </div>
+                            {isAdmin() && (
+                              <button onClick={() => handleRemoveGroupMember(m.userId)} className="text-red-400 hover:text-red-600 text-xs">제거</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 추가 가능한 교직원 */}
+                  {isAdmin() && (
+                    <div className="w-64 flex-shrink-0 border-l pl-4">
+                      <h3 className="font-semibold text-gray-700 mb-3">교직원 추가</h3>
+                      <input
+                        type="text"
+                        value={groupMemberSearch}
+                        onChange={e => setGroupMemberSearch(e.target.value)}
+                        placeholder="이름, 유형으로 검색"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm mb-2"
+                      />
+                      <div className="space-y-1 max-h-80 overflow-y-auto">
+                        {filteredUsersForGroup.length === 0 ? (
+                          <p className="text-gray-400 text-xs text-center py-4">추가할 교직원 없음</p>
+                        ) : (
+                          filteredUsersForGroup.map(u => (
+                            <div key={u.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded">
+                              <div>
+                                <span className="text-sm text-gray-900">{u.name}</span>
+                                <span className="text-xs text-gray-400 ml-1">{u.userType}</span>
+                              </div>
+                              <button onClick={() => handleAddGroupMember(u.id)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">추가</button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && loading ? (
           <div className="text-center py-8">로딩 중...</div>
-        ) : (
+        ) : activeTab === 'users' && (
           <div className="bg-white shadow-xl rounded-2xl overflow-hidden border-4 border-blue-200">
             <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -533,6 +751,30 @@ const Users = () => {
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   {uploadResult && uploadResult.success ? '확인' : '닫기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 그룹 생성/수정 모달 */}
+        {showGroupModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border-4 border-blue-300">
+              <h2 className="text-xl font-bold mb-4">{editingGroup ? '그룹 수정' : '새 그룹 만들기'}</h2>
+              <input
+                type="text"
+                value={groupName}
+                onChange={e => setGroupName(e.target.value)}
+                placeholder="그룹명 입력"
+                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 mb-4 focus:border-blue-500 focus:outline-none"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveGroup() }}
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowGroupModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">취소</button>
+                <button onClick={handleSaveGroup} disabled={groupSaving || !groupName.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {groupSaving ? '저장 중...' : '저장'}
                 </button>
               </div>
             </div>

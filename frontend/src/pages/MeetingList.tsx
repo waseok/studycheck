@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { getMeetings, createMeeting, deleteMeeting, completeMeeting, Meeting } from '../api/meetings'
 import { getUsers } from '../api/users'
+import { getGroups, StaffGroup } from '../api/groups'
 import { User } from '../types'
 
 const MeetingList = () => {
@@ -12,6 +13,7 @@ const MeetingList = () => {
   const [completedOpen, setCompletedOpen] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [users, setUsers] = useState<User[]>([])
+  const [groups, setGroups] = useState<StaffGroup[]>([])
   const [form, setForm] = useState({ name: '', agenda: '', date: '', location: '' })
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [userSearch, setUserSearch] = useState('')
@@ -40,15 +42,22 @@ const MeetingList = () => {
   }, [])
 
   const openCreate = async () => {
-    if (!users.length) {
-      try {
-        const data = await getUsers()
-        setUsers(data)
-      } catch {
-        setError('교직원 목록을 불러오지 못했습니다.')
-      }
+    try {
+      const [userData, groupData] = await Promise.all([
+        users.length ? Promise.resolve(users) : getUsers(),
+        groups.length ? Promise.resolve(groups) : getGroups(),
+      ])
+      setUsers(userData)
+      setGroups(groupData)
+    } catch {
+      setError('교직원 목록을 불러오지 못했습니다.')
     }
     setShowCreate(true)
+  }
+
+  const applyGroup = (group: StaffGroup) => {
+    const newIds = group.members.map(m => m.userId)
+    setSelectedUserIds(prev => Array.from(new Set([...prev, ...newIds])))
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -300,9 +309,25 @@ const MeetingList = () => {
 
                 {/* 참가자 선택 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    참가자 선택 ({selectedUserIds.length}명 선택됨)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      참가자 선택 ({selectedUserIds.length}명 선택됨)
+                    </label>
+                    {groups.length > 0 && (
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {groups.map(g => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => applyGroup(g)}
+                            className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full hover:bg-blue-100"
+                          >
+                            + {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={userSearch}
