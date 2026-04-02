@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers } from '../api/users'
@@ -27,6 +27,21 @@ const Users = () => {
   const [groupName, setGroupName] = useState('')
   const [groupMemberSearch, setGroupMemberSearch] = useState('')
   const [groupSaving, setGroupSaving] = useState(false)
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false)
+  const [newGroupFromSelection, setNewGroupFromSelection] = useState(false)
+  const [newGroupNameFromSelection, setNewGroupNameFromSelection] = useState('')
+  const groupDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) {
+        setShowGroupDropdown(false)
+        setNewGroupFromSelection(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -377,24 +392,28 @@ const Users = () => {
     (u.name.includes(groupMemberSearch) || u.userType.includes(groupMemberSearch) || (u.position || '').includes(groupMemberSearch))
   )
 
-  const getPositionOrder = (position: string | null, userType: string): number => {
-    if (!position) {
-      if (userType === '교원' || userType === '기간제교사') return 5
-      return 6
-    }
-    const p = position.toLowerCase()
-    if (p.includes('교장')) return 0
-    if (p.includes('교감')) return 1
-    if (p.includes('담임') || p.includes('학급')) return 2
-    if (p.includes('전담') || p.includes('교과')) return 3
-    if (p.includes('유치')) return 4
-    if (userType === '교원' || userType === '기간제교사') return 5
-    return 6
-  }
-
   const sortedUsers = [...users].sort((a, b) => {
-    const orderA = getPositionOrder(a.position ?? null, a.userType)
-    const orderB = getPositionOrder(b.position ?? null, b.userType)
+    const getOrder = (u: typeof users[0]): number => {
+      const p = (u.position ?? '').toLowerCase()
+      const t = u.userType
+      const hasGrade = !!u.grade && u.grade.trim() !== ''
+      if (p.includes('교장')) return 0
+      if (p.includes('교감')) return 1
+      // 학년 담임 (grade 있는 경우)
+      if ((p.includes('담임') || p.includes('학급')) && hasGrade) return 2
+      if (p.includes('전담') || p.includes('교과')) return 3
+      // 일반 교원 (담임/전담/교장/교감 아닌 교원, 기간제)
+      if (t === '교원' || t === '기간제교사') return 4
+      // 유치원 담임 포함 유치원 관련
+      if (p.includes('유치') || t.includes('유치')) return 5
+      // 직원 (행정실 포함)
+      if (t === '직원') return 6
+      // 공무직
+      if (t === '공무직' || t === '교육공무직') return 7
+      return 8
+    }
+    const orderA = getOrder(a)
+    const orderB = getOrder(b)
     if (orderA !== orderB) return orderA - orderB
     const gradeA = parseInt(a.grade ?? '99')
     const gradeB = parseInt(b.grade ?? '99')
@@ -411,31 +430,92 @@ const Users = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-blue-800 mb-6">👥 교직원 관리</h1>
           <div className="flex gap-2 flex-wrap justify-end">
-            {selectedIds.size > 0 && groups.length > 0 && (
-              <div className="relative group">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            {selectedIds.size > 0 && (
+              <div className="relative" ref={groupDropdownRef}>
+                <button
+                  onClick={() => { setShowGroupDropdown(v => !v); setNewGroupFromSelection(false); setNewGroupNameFromSelection('') }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
                   그룹에 추가 ({selectedIds.size}명) ▾
                 </button>
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-36 hidden group-hover:block">
-                  {groups.map(g => (
-                    <button
-                      key={g.id}
-                      onClick={async () => {
-                        try {
-                          await addGroupMembers(g.id, Array.from(selectedIds))
-                          await fetchGroups()
-                          setSelectedIds(new Set())
-                          alert(`"${g.name}" 그룹에 ${selectedIds.size}명 추가됐습니다.`)
-                        } catch (err: any) {
-                          alert(err.response?.data?.error || '추가 중 오류가 발생했습니다.')
-                        }
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
-                    >
-                      {g.name}
-                    </button>
-                  ))}
-                </div>
+                {showGroupDropdown && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-44">
+                    {groups.map(g => (
+                      <button
+                        key={g.id}
+                        onClick={async () => {
+                          const count = selectedIds.size
+                          try {
+                            await addGroupMembers(g.id, Array.from(selectedIds))
+                            await fetchGroups()
+                            setSelectedIds(new Set())
+                            setShowGroupDropdown(false)
+                            alert(`"${g.name}" 그룹에 ${count}명 추가됐습니다.`)
+                          } catch (err: any) {
+                            alert(err.response?.data?.error || '추가 중 오류가 발생했습니다.')
+                          }
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                      >
+                        {g.name}
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-100">
+                      {newGroupFromSelection ? (
+                        <div className="px-3 py-2 flex gap-1">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={newGroupNameFromSelection}
+                            onChange={e => setNewGroupNameFromSelection(e.target.value)}
+                            placeholder="그룹명"
+                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm min-w-0"
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter' && newGroupNameFromSelection.trim()) {
+                                const count = selectedIds.size
+                                try {
+                                  const g = await createGroup(newGroupNameFromSelection.trim(), Array.from(selectedIds))
+                                  await fetchGroups()
+                                  setSelectedIds(new Set())
+                                  setShowGroupDropdown(false)
+                                  setNewGroupFromSelection(false)
+                                  alert(`"${g.name}" 그룹이 생성되고 ${count}명이 추가됐습니다.`)
+                                } catch (err: any) {
+                                  alert(err.response?.data?.error || '생성 중 오류가 발생했습니다.')
+                                }
+                              }
+                              if (e.key === 'Escape') setNewGroupFromSelection(false)
+                            }}
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!newGroupNameFromSelection.trim()) return
+                              const count = selectedIds.size
+                              try {
+                                const g = await createGroup(newGroupNameFromSelection.trim(), Array.from(selectedIds))
+                                await fetchGroups()
+                                setSelectedIds(new Set())
+                                setShowGroupDropdown(false)
+                                setNewGroupFromSelection(false)
+                                alert(`"${g.name}" 그룹이 생성되고 ${count}명이 추가됐습니다.`)
+                              } catch (err: any) {
+                                alert(err.response?.data?.error || '생성 중 오류가 발생했습니다.')
+                              }
+                            }}
+                            className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                          >확인</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setNewGroupFromSelection(true)}
+                          className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium"
+                        >
+                          + 새 그룹 만들어서 추가
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {selectedIds.size > 0 && (
