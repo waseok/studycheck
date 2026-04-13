@@ -44,7 +44,7 @@ export interface MeetingDetail {
 }
 
 export interface PublicMeetingDetail extends MeetingDetail {
-  accessUserId: string
+  accessUserId: string | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
@@ -112,10 +112,9 @@ export const deleteMeetingSignature = async (meetingId: string, userId: string):
 
 export const createMeetingSignatureShareLink = async (
   meetingId: string,
-  userId: string,
   expiresInHours = 72
 ): Promise<{ token: string }> => {
-  const response = await apiClient.post(`/meetings/${meetingId}/share-link`, { userId, expiresInHours })
+  const response = await apiClient.post(`/meetings/${meetingId}/share-link`, { expiresInHours })
   return response.data
 }
 
@@ -129,11 +128,12 @@ export const getPublicMeeting = async (meetingId: string, token: string): Promis
 export const savePublicMeetingSignature = async (
   meetingId: string,
   token: string,
-  signatureImage: string
+  signatureImage: string,
+  targetUserId?: string
 ): Promise<{ success: boolean }> => {
   const response = await axios.post<{ success: boolean }>(
     `${API_URL}/meetings/public/${meetingId}/signature`,
-    { signatureImage },
+    { signatureImage, targetUserId },
     { params: { token } }
   )
   return response.data

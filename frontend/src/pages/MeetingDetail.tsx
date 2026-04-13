@@ -149,15 +149,15 @@ const MeetingDetail = () => {
     } catch { alert('참가자 제거에 실패했습니다.') }
   }
 
-  const handleCopyShareLink = async (userId: string) => {
+  const handleCopyShareLink = async () => {
     if (!meetingId) return
     const expiresInHours = askExpirationHours()
     if (!expiresInHours) return
     try {
-      const { token } = await createMeetingSignatureShareLink(meetingId, userId, expiresInHours)
+      const { token } = await createMeetingSignatureShareLink(meetingId, expiresInHours)
       const url = `${window.location.origin}/sign/meeting/${meetingId}?token=${encodeURIComponent(token)}`
       await navigator.clipboard.writeText(url)
-      alert(`서명 바로가기 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
+      alert(`공용 서명 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
     } catch {
       alert('서명 링크 생성에 실패했습니다.')
     }
@@ -286,6 +286,12 @@ const MeetingDetail = () => {
                 >
                   {data.meeting.isCompleted ? '↩️ 완료 취소' : '✅ 완료 처리'}
                 </button>
+                <button
+                  onClick={handleCopyShareLink}
+                  className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+                >
+                  🔗 공용 서명 링크 복사
+                </button>
               </>
             )}
             <button
@@ -398,10 +404,6 @@ const MeetingDetail = () => {
                                 className="text-xs text-gray-400 hover:text-gray-600"
                               >제거</button>
                             )}
-                            <button
-                              onClick={() => handleCopyShareLink(p.userId)}
-                              className="text-xs text-blue-500 hover:text-blue-700"
-                            >링크</button>
                           </div>
                         </td>
                       )}

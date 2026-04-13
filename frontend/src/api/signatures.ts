@@ -41,7 +41,7 @@ export interface SignatureBookData {
 }
 
 export interface PublicSignatureBookData extends SignatureBookData {
-  accessUserId: string
+  accessUserId: string | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
@@ -68,10 +68,9 @@ export const syncSignatureStatus = async (trainingId: string): Promise<{ updated
 
 export const createTrainingSignatureShareLink = async (
   trainingId: string,
-  userId: string,
   expiresInHours = 72
 ): Promise<{ token: string }> => {
-  const response = await apiClient.post(`/signatures/training/${trainingId}/share-link`, { userId, expiresInHours })
+  const response = await apiClient.post(`/signatures/training/${trainingId}/share-link`, { expiresInHours })
   return response.data
 }
 
@@ -82,8 +81,13 @@ export const getPublicSignatureBook = async (trainingId: string, token: string):
   return response.data
 }
 
-export const savePublicSignature = async (trainingId: string, token: string, signatureImage: string): Promise<{ success: boolean }> => {
-  const response = await axios.post<{ success: boolean }>(`${API_URL}/signatures/public/training/${trainingId}`, { signatureImage }, {
+export const savePublicSignature = async (
+  trainingId: string,
+  token: string,
+  signatureImage: string,
+  targetUserId?: string
+): Promise<{ success: boolean }> => {
+  const response = await axios.post<{ success: boolean }>(`${API_URL}/signatures/public/training/${trainingId}`, { signatureImage, targetUserId }, {
     params: { token }
   })
   return response.data

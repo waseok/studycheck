@@ -8,7 +8,7 @@ type SignatureResourceType = 'training' | 'meeting'
 export interface SignatureAccessPayload {
   type: SignatureResourceType
   resourceId: string
-  userId: string
+  userId?: string
 }
 
 interface DecodedPayload extends SignatureAccessPayload {
@@ -32,8 +32,7 @@ export const verifySignatureAccessToken = (
     const decoded = jwt.verify(token, JWT_SECRET) as DecodedPayload
     if (
       decoded.type !== expectedType ||
-      decoded.resourceId !== expectedResourceId ||
-      !decoded.userId
+      decoded.resourceId !== expectedResourceId
     ) {
       return null
     }

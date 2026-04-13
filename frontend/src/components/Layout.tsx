@@ -39,7 +39,7 @@ const Layout = ({ children }: LayoutProps) => {
     <div className="min-h-screen bg-sky-50">
       <div className="md:hidden bg-white shadow border-b border-blue-100">
         <div className="px-4 h-14 flex items-center justify-between">
-          <Link to="/dashboard" className="text-blue-800 font-bold text-base">🏫 와석초 연수관리 플랫폼</Link>
+          <Link to="/dashboard" className="text-blue-800 font-extrabold text-lg">🏫 와석초 연수관리 플랫폼</Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="w-10 h-10 rounded-lg text-blue-700 hover:bg-blue-50"
@@ -73,8 +73,8 @@ const Layout = ({ children }: LayoutProps) => {
 
       <div className="md:flex">
         <aside className="hidden md:flex md:w-72 min-h-screen bg-white border-r border-blue-100 shadow-sm flex-col">
-          <div className="h-16 flex items-center px-5 border-b border-blue-100">
-            <Link to="/dashboard" className="text-blue-800 font-bold text-lg">🏫 와석초 연수관리 플랫폼</Link>
+          <div className="h-20 flex items-center px-5 border-b border-blue-100">
+            <Link to="/dashboard" className="text-blue-800 font-extrabold text-2xl tracking-tight">🏫 와석초 연수관리 플랫폼</Link>
           </div>
           <nav className="p-3 space-y-1">
             {menuItems.map(item => {
@@ -83,7 +83,7 @@ const Layout = ({ children }: LayoutProps) => {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl text-base font-medium transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl text-lg font-bold transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
                 >
                   <span>{item.label}</span>
                   {item.subLabel && <span className={`text-xs ${active ? 'text-blue-100' : 'text-blue-400'}`}>{item.subLabel}</span>}

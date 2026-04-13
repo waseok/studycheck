@@ -175,27 +175,20 @@ export const deleteSignature = async (req: Request, res: Response) => {
 export const createTrainingSignatureLink = async (req: Request, res: Response) => {
   try {
     const { trainingId } = req.params
-    const { userId, expiresInHours } = req.body as { userId?: string; expiresInHours?: number }
+    const { expiresInHours } = req.body as { expiresInHours?: number }
 
-    if (!userId) return res.status(400).json({ error: '사용자 ID가 필요합니다.' })
-
-    const participant = await prisma.trainingParticipant.findUnique({
-      where: { trainingId_userId: { trainingId, userId } },
-      include: { user: { select: { name: true } } }
-    })
-    if (!participant) return res.status(404).json({ error: '해당 사용자는 연수 참여자가 아닙니다.' })
+    const training = await prisma.training.findUnique({ where: { id: trainingId } })
+    if (!training) return res.status(404).json({ error: '연수를 찾을 수 없습니다.' })
 
     const normalizedHours = Math.min(168, Math.max(1, Math.floor(expiresInHours ?? 72)))
 
     const token = createSignatureAccessToken(
-      { type: 'training', resourceId: trainingId, userId },
+      { type: 'training', resourceId: trainingId },
       normalizedHours
     )
 
     res.json({
       token,
-      userId,
-      userName: participant.user.name,
       expiresInHours: normalizedHours
     })
   } catch (error) {
@@ -243,7 +236,7 @@ export const getTrainingSignaturesByAccessToken = async (req: Request, res: Resp
     res.json({
       training,
       participants: result,
-      accessUserId: verified.userId
+      accessUserId: verified.userId || null
     })
   } catch (error) {
     console.error('getTrainingSignaturesByAccessToken error:', error)
@@ -255,15 +248,18 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
   try {
     const { trainingId } = req.params
     const token = String(req.query.token || '')
-    const { signatureImage } = req.body as { signatureImage?: string }
+    const { signatureImage, targetUserId } = req.body as { signatureImage?: string; targetUserId?: string }
     const verified = verifySignatureAccessToken(token, 'training', trainingId)
     if (!verified) return res.status(401).json({ error: '유효하지 않거나 만료된 서명 링크입니다.' })
     if (!signatureImage?.startsWith('data:image/')) {
       return res.status(400).json({ error: '올바른 이미지 형식이 아닙니다.' })
     }
 
+    const userId = verified.userId || targetUserId
+    if (!userId) return res.status(400).json({ error: '서명할 대상자 정보가 필요합니다.' })
+
     const participant = await prisma.trainingParticipant.findUnique({
-      where: { trainingId_userId: { trainingId, userId: verified.userId } }
+      where: { trainingId_userId: { trainingId, userId } }
     })
     if (!participant) return res.status(403).json({ error: '해당 연수의 참여자가 아닙니다.' })
 
@@ -271,12 +267,12 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
 
     await prisma.$transaction([
       prisma.trainingSignature.upsert({
-        where: { trainingId_userId: { trainingId, userId: verified.userId } },
-        create: { trainingId, userId: verified.userId, signatureImage, ipAddress },
+        where: { trainingId_userId: { trainingId, userId } },
+        create: { trainingId, userId, signatureImage, ipAddress },
         update: { signatureImage, signedAt: new Date(), ipAddress }
       }),
       prisma.trainingParticipant.updateMany({
-        where: { trainingId, userId: verified.userId },
+        where: { trainingId, userId },
         data: { status: 'completed', completedAt: new Date() }
       })
     ])

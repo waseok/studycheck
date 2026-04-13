@@ -147,15 +147,15 @@ const SignatureBookDetail = () => {
     }
   }
 
-  const handleCopyShareLink = async (userId: string) => {
+  const handleCopyShareLink = async () => {
     if (!trainingId) return
     const expiresInHours = askExpirationHours()
     if (!expiresInHours) return
     try {
-      const { token } = await createTrainingSignatureShareLink(trainingId, userId, expiresInHours)
+      const { token } = await createTrainingSignatureShareLink(trainingId, expiresInHours)
       const url = `${window.location.origin}/sign/training/${trainingId}?token=${encodeURIComponent(token)}`
       await navigator.clipboard.writeText(url)
-      alert(`서명 바로가기 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
+      alert(`공용 서명 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
     } catch {
       alert('서명 링크 생성에 실패했습니다.')
     }
@@ -322,6 +322,12 @@ const SignatureBookDetail = () => {
                     title="서명했지만 미완료 상태인 참여자를 완료로 일괄 처리"
                   >
                     🔄 이수상태 동기화
+                  </button>
+                  <button
+                    onClick={handleCopyShareLink}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 flex items-center gap-1"
+                  >
+                    🔗 공용 서명 링크 복사
                   </button>
                 </>
               )}
@@ -497,11 +503,6 @@ const SignatureBookDetail = () => {
                               className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
                               title="아래로"
                             >▼</button>
-                            <button
-                              onClick={() => handleCopyShareLink(p.userId)}
-                              className="text-blue-500 hover:text-blue-700 text-[10px] leading-none"
-                              title="무로그인 서명 링크 복사"
-                            >링크</button>
                           </div>
                         </td>
                       )}
