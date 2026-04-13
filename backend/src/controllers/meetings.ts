@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
+import { createSignatureAccessToken, verifySignatureAccessToken } from '../utils/signatureAccessToken'
 
 const prisma = new PrismaClient()
 
@@ -261,5 +262,119 @@ export const deleteMeetingSignature = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('deleteMeetingSignature error:', error)
     res.status(500).json({ error: '서명 삭제 중 오류가 발생했습니다.' })
+  }
+}
+
+export const createMeetingSignatureLink = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId } = req.params
+    const { userId, expiresInHours } = req.body as { userId?: string; expiresInHours?: number }
+
+    if (!userId) return res.status(400).json({ error: '사용자 ID가 필요합니다.' })
+
+    const participant = await prisma.meetingParticipant.findUnique({
+      where: { meetingId_userId: { meetingId, userId } },
+      include: { user: { select: { name: true } } }
+    })
+    if (!participant) return res.status(404).json({ error: '해당 사용자는 회의 참가자가 아닙니다.' })
+
+    const normalizedHours = Math.min(168, Math.max(1, Math.floor(expiresInHours ?? 72)))
+
+    const token = createSignatureAccessToken(
+      { type: 'meeting', resourceId: meetingId, userId },
+      normalizedHours
+    )
+
+    res.json({
+      token,
+      userId,
+      userName: participant.user.name,
+      expiresInHours: normalizedHours
+    })
+  } catch (error) {
+    console.error('createMeetingSignatureLink error:', error)
+    res.status(500).json({ error: '서명 링크 생성 중 오류가 발생했습니다.' })
+  }
+}
+
+export const getMeetingByAccessToken = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const token = String(req.query.token || '')
+    const verified = verifySignatureAccessToken(token, 'meeting', id)
+    if (!verified) return res.status(401).json({ error: '유효하지 않거나 만료된 서명 링크입니다.' })
+
+    const meeting = await prisma.meeting.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          include: {
+            user: { select: { id: true, name: true, userType: true, position: true, grade: true, class: true } }
+          }
+        },
+        signatures: true
+      }
+    })
+    if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없습니다.' })
+
+    const signatureMap = new Map(meeting.signatures.map(s => [s.userId, s]))
+    const participants = meeting.participants.map(p => ({
+      participantId: p.id,
+      userId: p.userId,
+      name: p.user.name,
+      userType: p.user.userType,
+      position: p.user.position,
+      grade: p.user.grade,
+      class: p.user.class,
+      signature: signatureMap.get(p.userId) ?? null
+    }))
+
+    res.json({
+      meeting: {
+        id: meeting.id,
+        name: meeting.name,
+        agenda: meeting.agenda,
+        date: meeting.date,
+        location: meeting.location,
+        isCompleted: meeting.isCompleted,
+        completedAt: meeting.completedAt
+      },
+      participants,
+      accessUserId: verified.userId
+    })
+  } catch (error) {
+    console.error('getMeetingByAccessToken error:', error)
+    res.status(500).json({ error: '회의 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+export const saveMeetingSignatureByAccessToken = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId } = req.params
+    const token = String(req.query.token || '')
+    const { signatureImage } = req.body as { signatureImage?: string }
+    const verified = verifySignatureAccessToken(token, 'meeting', meetingId)
+    if (!verified) return res.status(401).json({ error: '유효하지 않거나 만료된 서명 링크입니다.' })
+    if (!signatureImage?.startsWith('data:image/')) {
+      return res.status(400).json({ error: '올바른 서명 이미지가 필요합니다.' })
+    }
+
+    const participant = await prisma.meetingParticipant.findUnique({
+      where: { meetingId_userId: { meetingId, userId: verified.userId } }
+    })
+    if (!participant) return res.status(403).json({ error: '해당 회의의 참가자가 아닙니다.' })
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
+
+    await prisma.meetingSignature.upsert({
+      where: { meetingId_userId: { meetingId, userId: verified.userId } },
+      create: { meetingId, userId: verified.userId, signatureImage, ipAddress },
+      update: { signatureImage, signedAt: new Date(), ipAddress }
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('saveMeetingSignatureByAccessToken error:', error)
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' })
   }
 }

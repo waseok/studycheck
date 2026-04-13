@@ -7,7 +7,7 @@ import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import {
   getMeeting, saveMeetingSignature, deleteMeetingSignature,
   completeMeeting, updateMeeting, addMeetingParticipants, removeMeetingParticipant,
-  MeetingDetail as MeetingDetailType, MeetingParticipant
+  MeetingDetail as MeetingDetailType, MeetingParticipant, createMeetingSignatureShareLink
 } from '../api/meetings'
 import { getUsers } from '../api/users'
 import { getSavedSignature, saveSavedSignature } from '../api/signatures'
@@ -34,6 +34,17 @@ const MeetingDetail = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', agenda: '', date: '', location: '' })
+
+  const askExpirationHours = (): number | null => {
+    const input = window.prompt('링크 만료일을 입력하세요. (1~7일)', '3')
+    if (input === null) return null
+    const days = Number(input)
+    if (!Number.isFinite(days) || days < 1 || days > 7) {
+      alert('만료일은 1일 이상 7일 이하로 입력해주세요.')
+      return null
+    }
+    return Math.floor(days * 24)
+  }
 
   const currentUserId = (() => {
     try {
@@ -136,6 +147,20 @@ const MeetingDetail = () => {
       await removeMeetingParticipant(meetingId, userId)
       await fetchData()
     } catch { alert('참가자 제거에 실패했습니다.') }
+  }
+
+  const handleCopyShareLink = async (userId: string) => {
+    if (!meetingId) return
+    const expiresInHours = askExpirationHours()
+    if (!expiresInHours) return
+    try {
+      const { token } = await createMeetingSignatureShareLink(meetingId, userId, expiresInHours)
+      const url = `${window.location.origin}/sign/meeting/${meetingId}?token=${encodeURIComponent(token)}`
+      await navigator.clipboard.writeText(url)
+      alert(`서명 바로가기 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
+    } catch {
+      alert('서명 링크 생성에 실패했습니다.')
+    }
   }
 
   const openAddParticipant = async () => {
@@ -373,6 +398,10 @@ const MeetingDetail = () => {
                                 className="text-xs text-gray-400 hover:text-gray-600"
                               >제거</button>
                             )}
+                            <button
+                              onClick={() => handleCopyShareLink(p.userId)}
+                              className="text-xs text-blue-500 hover:text-blue-700"
+                            >링크</button>
                           </div>
                         </td>
                       )}

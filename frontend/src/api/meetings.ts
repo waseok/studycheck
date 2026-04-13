@@ -1,4 +1,5 @@
 import apiClient from './client'
+import axios from 'axios'
 
 export interface MeetingSignatureInfo {
   id: string
@@ -41,6 +42,12 @@ export interface MeetingDetail {
   }
   participants: MeetingParticipant[]
 }
+
+export interface PublicMeetingDetail extends MeetingDetail {
+  accessUserId: string
+}
+
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
 
 export const getMeetings = async (): Promise<Meeting[]> => {
   const response = await apiClient.get<Meeting[]>('/meetings')
@@ -101,4 +108,33 @@ export const saveMeetingSignature = async (
 
 export const deleteMeetingSignature = async (meetingId: string, userId: string): Promise<void> => {
   await apiClient.delete(`/meetings/${meetingId}/signature/${userId}`)
+}
+
+export const createMeetingSignatureShareLink = async (
+  meetingId: string,
+  userId: string,
+  expiresInHours = 72
+): Promise<{ token: string }> => {
+  const response = await apiClient.post(`/meetings/${meetingId}/share-link`, { userId, expiresInHours })
+  return response.data
+}
+
+export const getPublicMeeting = async (meetingId: string, token: string): Promise<PublicMeetingDetail> => {
+  const response = await axios.get<PublicMeetingDetail>(`${API_URL}/meetings/public/${meetingId}`, {
+    params: { token }
+  })
+  return response.data
+}
+
+export const savePublicMeetingSignature = async (
+  meetingId: string,
+  token: string,
+  signatureImage: string
+): Promise<{ success: boolean }> => {
+  const response = await axios.post<{ success: boolean }>(
+    `${API_URL}/meetings/public/${meetingId}/signature`,
+    { signatureImage },
+    { params: { token } }
+  )
+  return response.data
 }

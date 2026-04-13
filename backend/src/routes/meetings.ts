@@ -3,7 +3,8 @@ import { authMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 import {
   getMeetings, getMeeting, createMeeting, updateMeeting,
   deleteMeeting, completeMeeting, addParticipants, removeParticipant,
-  saveMeetingSignature, deleteMeetingSignature
+  saveMeetingSignature, deleteMeetingSignature, createMeetingSignatureLink,
+  getMeetingByAccessToken, saveMeetingSignatureByAccessToken
 } from '../controllers/meetings'
 
 const router = Router()
@@ -18,5 +19,8 @@ router.post('/:id/participants', authMiddleware, trainingAdminMiddleware, addPar
 router.delete('/:id/participants/:userId', authMiddleware, trainingAdminMiddleware, removeParticipant)
 router.post('/:id/signature', authMiddleware, saveMeetingSignature)
 router.delete('/:id/signature/:userId', authMiddleware, trainingAdminMiddleware, deleteMeetingSignature)
+router.post('/:id/share-link', authMiddleware, trainingAdminMiddleware, createMeetingSignatureLink)
+router.get('/public/:id', getMeetingByAccessToken)
+router.post('/public/:id/signature', saveMeetingSignatureByAccessToken)
 
 export default router

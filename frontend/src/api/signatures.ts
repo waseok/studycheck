@@ -1,4 +1,5 @@
 import apiClient from './client'
+import axios from 'axios'
 
 export const getSavedSignature = async (): Promise<string | null> => {
   const response = await apiClient.get<{ savedSignature: string | null }>('/users/me/saved-signature')
@@ -39,6 +40,12 @@ export interface SignatureBookData {
   participants: SignatureParticipant[]
 }
 
+export interface PublicSignatureBookData extends SignatureBookData {
+  accessUserId: string
+}
+
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://studycheck.onrender.com/api')
+
 export const getSignatureBook = async (trainingId: string): Promise<SignatureBookData> => {
   const response = await apiClient.get<SignatureBookData>(`/signatures/training/${trainingId}`)
   return response.data
@@ -56,5 +63,28 @@ export const deleteSignature = async (trainingId: string, userId: string): Promi
 
 export const syncSignatureStatus = async (trainingId: string): Promise<{ updated: number }> => {
   const response = await apiClient.post(`/signatures/training/${trainingId}/sync-status`)
+  return response.data
+}
+
+export const createTrainingSignatureShareLink = async (
+  trainingId: string,
+  userId: string,
+  expiresInHours = 72
+): Promise<{ token: string }> => {
+  const response = await apiClient.post(`/signatures/training/${trainingId}/share-link`, { userId, expiresInHours })
+  return response.data
+}
+
+export const getPublicSignatureBook = async (trainingId: string, token: string): Promise<PublicSignatureBookData> => {
+  const response = await axios.get<PublicSignatureBookData>(`${API_URL}/signatures/public/training/${trainingId}`, {
+    params: { token }
+  })
+  return response.data
+}
+
+export const savePublicSignature = async (trainingId: string, token: string, signatureImage: string): Promise<{ success: boolean }> => {
+  const response = await axios.post<{ success: boolean }>(`${API_URL}/signatures/public/training/${trainingId}`, { signatureImage }, {
+    params: { token }
+  })
   return response.data
 }

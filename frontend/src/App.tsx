@@ -13,6 +13,8 @@ import SignatureBookDetail from './pages/SignatureBookDetail'
 import TrainingNotice from './pages/TrainingNotice'
 import MeetingList from './pages/MeetingList'
 import MeetingDetail from './pages/MeetingDetail'
+import PublicTrainingSignature from './pages/PublicTrainingSignature'
+import PublicMeetingSignature from './pages/PublicMeetingSignature'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -129,6 +131,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/sign/training/:trainingId" element={<PublicTrainingSignature />} />
+        <Route path="/sign/meeting/:meetingId" element={<PublicMeetingSignature />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

@@ -4,7 +4,10 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import Layout from '../components/Layout'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
-import { getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, getSavedSignature, saveSavedSignature, SignatureBookData, SignatureParticipant } from '../api/signatures'
+import {
+  getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, getSavedSignature,
+  saveSavedSignature, SignatureBookData, SignatureParticipant, createTrainingSignatureShareLink
+} from '../api/signatures'
 
 const SignatureBookDetail = () => {
   const { trainingId } = useParams<{ trainingId: string }>()
@@ -19,6 +22,17 @@ const SignatureBookDetail = () => {
   const [customOrder, setCustomOrder] = useState<string[] | null>(null)
   const [savedSignature, setSavedSignature] = useState<string | null>(null)
   const [savingSignature, setSavingSignature] = useState(false)
+
+  const askExpirationHours = (): number | null => {
+    const input = window.prompt('링크 만료일을 입력하세요. (1~7일)', '3')
+    if (input === null) return null
+    const days = Number(input)
+    if (!Number.isFinite(days) || days < 1 || days > 7) {
+      alert('만료일은 1일 이상 7일 이하로 입력해주세요.')
+      return null
+    }
+    return Math.floor(days * 24)
+  }
 
   const printRef = useRef<HTMLDivElement>(null)
   const signaturePadRef = useRef<SignaturePadRef>(null)
@@ -130,6 +144,20 @@ const SignatureBookDetail = () => {
       await fetchData()
     } catch {
       alert('서명 삭제에 실패했습니다.')
+    }
+  }
+
+  const handleCopyShareLink = async (userId: string) => {
+    if (!trainingId) return
+    const expiresInHours = askExpirationHours()
+    if (!expiresInHours) return
+    try {
+      const { token } = await createTrainingSignatureShareLink(trainingId, userId, expiresInHours)
+      const url = `${window.location.origin}/sign/training/${trainingId}?token=${encodeURIComponent(token)}`
+      await navigator.clipboard.writeText(url)
+      alert(`서명 바로가기 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
+    } catch {
+      alert('서명 링크 생성에 실패했습니다.')
     }
   }
 
@@ -469,6 +497,11 @@ const SignatureBookDetail = () => {
                               className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs leading-none"
                               title="아래로"
                             >▼</button>
+                            <button
+                              onClick={() => handleCopyShareLink(p.userId)}
+                              className="text-blue-500 hover:text-blue-700 text-[10px] leading-none"
+                              title="무로그인 서명 링크 복사"
+                            >링크</button>
                           </div>
                         </td>
                       )}
