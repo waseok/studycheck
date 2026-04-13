@@ -25,7 +25,8 @@ const PublicMeetingSignature = () => {
     try {
       const result = await getPublicMeeting(meetingId, token)
       setData(result)
-      const defaultUserId = result.accessUserId || result.participants.find(p => !p.signature)?.userId || result.participants[0]?.userId || ''
+      const sorted = [...result.participants].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      const defaultUserId = sorted.find(p => !p.signature)?.userId || sorted[0]?.userId || ''
       setSelectedUserId(defaultUserId)
     } catch (err: any) {
       setError(err?.response?.data?.error || '서명 정보를 불러오지 못했습니다.')
