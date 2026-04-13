@@ -34,17 +34,11 @@ const MeetingDetail = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', agenda: '', date: '', location: '' })
-
-  const askExpirationHours = (): number | null => {
-    const input = window.prompt('링크 만료일을 입력하세요. (1~7일)', '3')
-    if (input === null) return null
-    const days = Number(input)
-    if (!Number.isFinite(days) || days < 1 || days > 7) {
-      alert('만료일은 1일 이상 7일 이하로 입력해주세요.')
-      return null
-    }
-    return Math.floor(days * 24)
-  }
+  const [showShareLinkModal, setShowShareLinkModal] = useState(false)
+  const [shareLinkDays, setShareLinkDays] = useState('3')
+  const [shareLinkUrl, setShareLinkUrl] = useState('')
+  const [shareLinkExpiresAt, setShareLinkExpiresAt] = useState<number | null>(null)
+  const [creatingShareLink, setCreatingShareLink] = useState(false)
 
   const currentUserId = (() => {
     try {
@@ -149,17 +143,72 @@ const MeetingDetail = () => {
     } catch { alert('참가자 제거에 실패했습니다.') }
   }
 
-  const handleCopyShareLink = async () => {
-    if (!meetingId) return
-    const expiresInHours = askExpirationHours()
-    if (!expiresInHours) return
+  const getShareLinkStorageKey = () => `meeting-share-link-${meetingId}`
+
+  const decodeTokenExp = (token: string): number | null => {
     try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (!payload.exp) return null
+      return payload.exp * 1000
+    } catch {
+      return null
+    }
+  }
+
+  const openShareLinkModal = () => {
+    const key = getShareLinkStorageKey()
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { url: string; expiresAt: number }
+        if (parsed.expiresAt > Date.now()) {
+          setShareLinkUrl(parsed.url)
+          setShareLinkExpiresAt(parsed.expiresAt)
+        } else {
+          localStorage.removeItem(key)
+          setShareLinkUrl('')
+          setShareLinkExpiresAt(null)
+        }
+      } catch {
+        localStorage.removeItem(key)
+      }
+    } else {
+      setShareLinkUrl('')
+      setShareLinkExpiresAt(null)
+    }
+    setShowShareLinkModal(true)
+  }
+
+  const handleCreateShareLink = async () => {
+    if (!meetingId) return
+    const days = Number(shareLinkDays)
+    if (!Number.isFinite(days) || days < 1 || days > 7) {
+      alert('만료일은 1일 이상 7일 이하로 입력해주세요.')
+      return
+    }
+    try {
+      setCreatingShareLink(true)
+      const expiresInHours = Math.floor(days * 24)
       const { token } = await createMeetingSignatureShareLink(meetingId, expiresInHours)
       const url = `${window.location.origin}/sign/meeting/${meetingId}?token=${encodeURIComponent(token)}`
-      await navigator.clipboard.writeText(url)
-      alert(`공용 서명 URL이 복사되었습니다. (만료: ${expiresInHours / 24}일)`)
+      const expiresAt = decodeTokenExp(token)
+      setShareLinkUrl(url)
+      setShareLinkExpiresAt(expiresAt)
+      localStorage.setItem(getShareLinkStorageKey(), JSON.stringify({ url, expiresAt: expiresAt || Date.now() + expiresInHours * 60 * 60 * 1000 }))
     } catch {
       alert('서명 링크 생성에 실패했습니다.')
+    } finally {
+      setCreatingShareLink(false)
+    }
+  }
+
+  const handleCopyCreatedLink = async () => {
+    if (!shareLinkUrl) return
+    try {
+      await navigator.clipboard.writeText(shareLinkUrl)
+      alert('서명하기 링크가 복사되었습니다.')
+    } catch {
+      alert('링크 복사에 실패했습니다.')
     }
   }
 
@@ -287,10 +336,10 @@ const MeetingDetail = () => {
                   {data.meeting.isCompleted ? '↩️ 완료 취소' : '✅ 완료 처리'}
                 </button>
                 <button
-                  onClick={handleCopyShareLink}
+                  onClick={openShareLinkModal}
                   className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                 >
-                  🔗 공용 서명 링크 복사
+                  🔗 서명하기 링크 만들기
                 </button>
               </>
             )}
@@ -420,6 +469,49 @@ const MeetingDetail = () => {
           </>
         ) : null}
       </div>
+
+      {/* 서명 링크 생성 모달 */}
+      {showShareLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">서명하기 링크 만들기</h3>
+            {shareLinkUrl ? (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-700">생성된 링크</div>
+                <input readOnly value={shareLinkUrl} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <div className="text-xs text-gray-500">
+                  만료: {shareLinkExpiresAt ? new Date(shareLinkExpiresAt).toLocaleString('ko-KR') : '-'}
+                </div>
+                <button onClick={handleCopyCreatedLink} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  링크 복사
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">만료일 (1~7일)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={7}
+                  value={shareLinkDays}
+                  onChange={(e) => setShareLinkDays(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={handleCreateShareLink}
+                  disabled={creatingShareLink}
+                  className="w-full px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {creatingShareLink ? '생성 중...' : '만들고 복사하기'}
+                </button>
+              </div>
+            )}
+            <button onClick={() => setShowShareLinkModal(false)} className="w-full mt-3 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 서명 모달 */}
       {signingUserId && (
