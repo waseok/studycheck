@@ -74,10 +74,14 @@ const MeetingDetail = () => {
   // 본인 서명 모달 열릴 때 저장된 서명 자동 로드
   useEffect(() => {
     if (signingUserId && signingUserId === currentUserId && savedSignature) {
-      const timer = setTimeout(() => {
+      // 캔버스 마운트 타이밍에 따라 로드 실패할 수 있어 짧게 재시도
+      let attempts = 0
+      const timer = setInterval(() => {
+        attempts += 1
         signaturePadRef.current?.loadDataURL(savedSignature)
-      }, 100)
-      return () => clearTimeout(timer)
+        if (attempts >= 3) clearInterval(timer)
+      }, 120)
+      return () => clearInterval(timer)
     }
   }, [signingUserId, currentUserId, savedSignature])
 

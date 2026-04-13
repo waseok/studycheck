@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getMyProfile, updateMyProfile } from '../api/users'
+import { getSavedSignature } from '../api/signatures'
 import { User } from '../types'
 
 const Profile = () => {
@@ -17,6 +18,7 @@ const Profile = () => {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [savedSignature, setSavedSignature] = useState<string | null>(null)
 
   const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
 
@@ -37,6 +39,8 @@ const Profile = () => {
         grade: data.grade || '',
         class: data.class || ''
       })
+      const mySavedSignature = await getSavedSignature()
+      setSavedSignature(mySavedSignature)
     } catch (error: any) {
       console.error('내 정보 조회 오류:', error)
       setError('내 정보를 불러올 수 없습니다.')
@@ -61,6 +65,14 @@ const Profile = () => {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleDownloadSignature = () => {
+    if (!savedSignature) return
+    const link = document.createElement('a')
+    link.href = savedSignature
+    link.download = `내_서명_${new Date().toISOString().slice(0, 10)}.png`
+    link.click()
   }
 
   if (loading) {
@@ -198,6 +210,28 @@ const Profile = () => {
               </button>
             </div>
           </form>
+        </div>
+
+        <div className="bg-white shadow rounded-lg p-6 mt-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-3">저장된 서명</h2>
+          {savedSignature ? (
+            <>
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <img src={savedSignature} alt="저장된 서명" className="max-h-32 object-contain mx-auto" />
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleDownloadSignature}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  서명 이미지 다운로드
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-gray-500">저장된 서명이 없습니다. 연수/회의 서명 창에서 &quot;이 서명 저장해두기&quot;를 먼저 사용해주세요.</div>
+          )}
         </div>
       </div>
     </Layout>
