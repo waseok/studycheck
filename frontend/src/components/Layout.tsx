@@ -73,8 +73,11 @@ const Layout = ({ children }: LayoutProps) => {
 
       <div className="md:flex">
         <aside className="hidden md:flex md:w-72 min-h-screen bg-white border-r border-blue-100 shadow-sm flex-col">
-          <div className="h-20 flex items-center px-5 border-b border-blue-100">
-            <Link to="/dashboard" className="text-blue-800 font-extrabold text-2xl tracking-tight">🏫 와석초 연수관리 플랫폼</Link>
+          <div className="h-24 flex items-center justify-center px-5 border-b border-blue-100">
+            <Link to="/dashboard" className="text-blue-800 text-center leading-tight">
+              <div className="text-2xl">🏫</div>
+              <div className="font-extrabold text-2xl tracking-tight">와석초 연수관리 플랫폼</div>
+            </Link>
           </div>
           <nav className="p-3 space-y-1">
             {menuItems.map(item => {
@@ -83,7 +86,7 @@ const Layout = ({ children }: LayoutProps) => {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl text-lg font-bold transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl text-lg font-semibold transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-700 hover:bg-blue-50'}`}
                 >
                   <span>{item.label}</span>
                   {item.subLabel && <span className={`text-xs ${active ? 'text-blue-100' : 'text-blue-400'}`}>{item.subLabel}</span>}

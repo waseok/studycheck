@@ -14,6 +14,7 @@ const PublicMeetingSignature = () => {
   const [error, setError] = useState('')
   const [data, setData] = useState<Awaited<ReturnType<typeof getPublicMeeting>> | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [hideSigned, setHideSigned] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!meetingId || !token) {
@@ -60,6 +61,22 @@ const PublicMeetingSignature = () => {
 
   const participant = data?.participants?.find((p: MeetingParticipant) => p.userId === selectedUserId)
   const completed = Boolean(participant?.signature)
+  const sortedParticipants = useMemo(() => {
+    return [...(data?.participants ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  }, [data?.participants])
+  const visibleParticipants = hideSigned
+    ? sortedParticipants.filter((p) => !p.signature)
+    : sortedParticipants
+
+  useEffect(() => {
+    if (!visibleParticipants.length) {
+      setSelectedUserId('')
+      return
+    }
+    if (!visibleParticipants.some((p) => p.userId === selectedUserId)) {
+      setSelectedUserId(visibleParticipants[0].userId)
+    }
+  }, [visibleParticipants, selectedUserId])
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">불러오는 중...</div>
 
@@ -69,15 +86,23 @@ const PublicMeetingSignature = () => {
         <h1 className="text-2xl font-bold text-slate-900 mb-1">회의등록부 서명</h1>
         <p className="text-slate-600 text-sm mb-4">{data?.meeting?.name || '-'}</p>
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{error}</div>}
-        {data?.participants?.length ? (
+        {sortedParticipants.length ? (
           <div className="mb-4 text-sm text-slate-700">
+            <label className="inline-flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={hideSigned}
+                onChange={(e) => setHideSigned(e.target.checked)}
+              />
+              <span>서명완료자 숨기기</span>
+            </label>
             <label className="block mb-1 font-medium">대상자 선택</label>
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             >
-              {data.participants.map((p) => (
+              {visibleParticipants.map((p) => (
                 <option key={p.userId} value={p.userId}>
                   {p.name} ({p.signature ? '서명완료' : '미서명'})
                 </option>
