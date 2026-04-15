@@ -2,37 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'NotoSansKR';
-  src: url('./assets/fonts/NotoSansKR-Light.otf') format('opentype');
-  font-weight: 300;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'NotoSansKR';
-  src: url('./assets/fonts/NotoSansKR-Medium.otf') format('opentype');
-  font-weight: 500;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'NotoSansKR';
-  src: url('./assets/fonts/NotoSansKR-Bold.otf') format('opentype');
-  font-weight: 700;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'NotoSansKR';
-  src: url('./assets/fonts/NotoSansKR-Black.otf') format('opentype');
-  font-weight: 900;
-  font-style: normal;
-}
-
 body {
   margin: 0;
-  font-family: 'NotoSansKR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-weight: 300;
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -42,17 +14,17 @@ body {
 }
 
 h1, h2, h3, .font-title {
-  font-family: 'NotoSansKR', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-weight: 700;
 }
 
 h4, h5, h6, button, th, label, .font-subtitle {
-  font-family: 'NotoSansKR', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-weight: 500;
 }
 
 p, span, td, li, input, textarea, select, .font-body {
-  font-family: 'NotoSansKR', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-weight: 300;
 }
 

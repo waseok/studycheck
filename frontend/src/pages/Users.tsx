@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers } from '../api/users'
 import { cleanupDuplicates } from '../api/participants'
@@ -325,6 +324,7 @@ const Users = () => {
         ['최도현', 'choi@example.com', '교육공무직', '연수 관리자'],
       ]
 
+      const XLSX = await import('xlsx')
       const ws = XLSX.utils.aoa_to_sheet(templateData)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, '교직원 목록')

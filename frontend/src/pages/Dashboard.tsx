@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
+import CompletionDonut from '../components/CompletionDonut'
 import { isAdmin, getRole } from '../api/auth'
 import { getTrainings } from '../api/trainings'
 import { getMyTrainings } from '../api/participants'
 import { getIncompleteList } from '../api/stats'
 import { Training, TrainingParticipant } from '../types'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 
 const Dashboard = () => {
   const [myTrainings, setMyTrainings] = useState<TrainingParticipant[]>([])
@@ -16,8 +16,6 @@ const Dashboard = () => {
   const adminUser = isAdmin()
   const role = getRole()
   
-  const COLORS = ['#00C49F', '#FF8042']
-
   useEffect(() => {
     fetchData()
   }, [])
@@ -261,25 +259,7 @@ const Dashboard = () => {
                       </h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-shrink-0">
-                          <ResponsiveContainer width={80} height={80}>
-                            <PieChart>
-                              <Pie
-                                data={stat.pieData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                outerRadius={35}
-                                fill="#8884d8"
-                                dataKey="value"
-                              >
-                                {stat.pieData.map((_entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index]} />
-                                ))}
-                              </Pie>
-                              <Tooltip />
-                            </PieChart>
-                          </ResponsiveContainer>
+                          <CompletionDonut completed={stat.completed} pending={stat.pending} size={80} />
                         </div>
                         <div className="flex-1 text-xs">
                           <div className="flex items-center gap-2 mb-1">

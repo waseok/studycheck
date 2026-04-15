@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
+import CompletionDonut from '../components/CompletionDonut'
 import { getTrainingStats, getIncompleteList } from '../api/stats'
 import { getTrainings } from '../api/trainings'
 import { sendIncompleteReminders, sendReminders } from '../api/reminders'
 import { Training } from '../types'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 
 const Stats = () => {
   const [trainings, setTrainings] = useState<Training[]>([])
@@ -16,8 +15,6 @@ const Stats = () => {
   const [loading, setLoading] = useState(false)
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [reminderResult, setReminderResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
   useEffect(() => {
     fetchTrainings()
@@ -81,7 +78,7 @@ const Stats = () => {
     }
   }
 
-  const handleExportIncompleteToExcel = () => {
+  const handleExportIncompleteToExcel = async () => {
     if (incompleteList.length === 0) {
       alert('미이수자가 없습니다.')
       return
@@ -94,6 +91,7 @@ const Stats = () => {
       '이메일': item.user?.email || '-',
       '유형': item.user?.userType || '-',
     }))
+    const XLSX = await import('xlsx')
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(excelData)
     XLSX.utils.book_append_sheet(wb, ws, '미이수자 목록')
@@ -140,11 +138,6 @@ const Stats = () => {
     }
   })
 
-  const pieData = trainingStats ? [
-    { name: '완료', value: trainingStats.completed },
-    { name: '미완료', value: trainingStats.pending }
-  ] : []
-
   if (loading) {
     return (
       <Layout>
@@ -170,25 +163,7 @@ const Stats = () => {
                     <h3 className="text-sm font-medium text-gray-700 mb-2">{training.fullName}</h3>
                     <div className="flex items-center gap-4">
                       <div className="flex-shrink-0">
-                        <ResponsiveContainer width={120} height={120}>
-                          <PieChart>
-                            <Pie
-                              data={training.pieData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                              outerRadius={50}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {training.pieData.map((_entry, index) => (
-                                <Cell key={`cell-${index}`} fill={index === 0 ? '#00C49F' : '#FF8042'} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <CompletionDonut completed={training.completed} pending={training.pending} size={120} />
                       </div>
                       <div className="flex-1">
                         <div className="space-y-1 text-sm">
@@ -270,25 +245,9 @@ const Stats = () => {
                   )}
                 </div>
 
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {pieData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="flex justify-center">
+                  <CompletionDonut completed={trainingStats.completed} pending={trainingStats.pending} size={200} />
+                </div>
               </div>
             )}
           </div>

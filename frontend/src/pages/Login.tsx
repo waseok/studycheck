@@ -227,7 +227,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="flex flex-col items-center">
           <img
-            src="/school-logo.png"
+            src="/school-logo.webp"
             alt="와석초등학교 교표"
             className="w-28 h-28 object-contain"
           />

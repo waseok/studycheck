@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import Layout from '../components/Layout'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import {
@@ -255,6 +253,10 @@ const MeetingDetail = () => {
     const noPrintEls = printRef.current.querySelectorAll<HTMLElement>('.no-print')
     noPrintEls.forEach(el => { el.style.display = 'none' })
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
       const canvas = await html2canvas(printRef.current, {
         scale: 1.5, useCORS: true, backgroundColor: '#ffffff'
       })

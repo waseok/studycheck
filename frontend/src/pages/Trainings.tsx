@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { getTrainings, createTraining, updateTraining, deleteTraining } from '../api/trainings'
 import { sendIncompleteReminders } from '../api/reminders'
@@ -375,7 +374,7 @@ const Trainings = () => {
     }
   }
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (trainings.length === 0) {
       alert('다운로드할 연수 목록이 없습니다.')
       return
@@ -394,6 +393,7 @@ const Trainings = () => {
       '참여자 수': training.participants?.length || 0,
       '등록일': training.createdAt ? new Date(training.createdAt).toLocaleDateString('ko-KR') : '-',
     }))
+    const XLSX = await import('xlsx')
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(excelData)
     XLSX.utils.book_append_sheet(wb, ws, '연수 목록')

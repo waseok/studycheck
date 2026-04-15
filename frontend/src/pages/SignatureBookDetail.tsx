@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import Layout from '../components/Layout'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import {
@@ -261,6 +259,7 @@ const SignatureBookDetail = () => {
     if (!printRef.current || !data) return
     setExporting(true)
     try {
+      const { default: html2canvas } = await import('html2canvas')
       const canvas = await html2canvas(printRef.current, {
         scale: 2,
         useCORS: true,
@@ -282,6 +281,10 @@ const SignatureBookDetail = () => {
     if (!printRef.current || !data) return
     setExporting(true)
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
       // 관리 버튼(no-print) 요소 임시 숨김
       const noPrintEls = printRef.current.querySelectorAll<HTMLElement>('.no-print')
       noPrintEls.forEach(el => { el.style.display = 'none' })

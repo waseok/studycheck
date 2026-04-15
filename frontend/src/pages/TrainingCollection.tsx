@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { isAdmin, getRole } from '../api/auth'
 import { getParticipants, updateCompletionNumber, cancelCompletion } from '../api/participants'
@@ -200,7 +199,7 @@ const TrainingCollection = () => {
   }, [participants, totalCount, completedCount, incompleteCount, completionRate])
 
   // 엑셀 내보내기 함수
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (!training || filteredParticipants.length === 0) {
       alert('내보낼 데이터가 없습니다.')
       return
@@ -218,6 +217,7 @@ const TrainingCollection = () => {
       '이메일': participant.user?.email || '-',
     }))
 
+    const XLSX = await import('xlsx')
     // 워크북 생성
     const wb = XLSX.utils.book_new()
     
