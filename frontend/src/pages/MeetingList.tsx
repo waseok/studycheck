@@ -142,6 +142,33 @@ const MeetingList = () => {
   const activeM = meetings.filter(m => !m.isCompleted)
   const completedM = meetings.filter(m => m.isCompleted)
 
+  /** 아이콘 + 하단 라벨 + title 툴팁으로 액션 버튼 의미를 명확히 표시 */
+  const IconActionButton = ({
+    icon,
+    label,
+    onClick,
+    disabled,
+    className = '',
+  }: {
+    icon: React.ReactNode
+    label: string
+    onClick: (e: React.MouseEvent) => void
+    disabled?: boolean
+    className?: string
+  }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      className={`group flex flex-col items-center gap-0.5 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 ${className}`}
+    >
+      <span className="text-sm leading-none">{icon}</span>
+      <span className="text-[10px] leading-tight text-gray-500 group-hover:text-current whitespace-nowrap">
+        {label}
+      </span>
+    </button>
+  )
+
   const MeetingCard = ({ m }: { m: Meeting }) => (
     <div
       onClick={() => navigate(`/dashboard/meetings/${m.id}`)}
@@ -150,31 +177,30 @@ const MeetingList = () => {
       }`}
     >
       {isAdmin && (
-        <div className="absolute top-3 right-3 flex items-center gap-1">
-          <button
+        <div className="absolute top-3 right-3 flex items-start gap-0.5">
+          <IconActionButton
+            icon={completing === m.id ? '⏳' : m.isCompleted ? '↩' : '✓'}
+            label={completing === m.id ? '처리중' : m.isCompleted ? '완료취소' : '취합완료'}
             onClick={e => { e.stopPropagation(); handleComplete(m) }}
-            className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-              m.isCompleted
-                ? 'text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300'
-                : 'text-gray-300 hover:text-green-600 border border-gray-200 hover:border-green-400'
-            }`}
-            title={m.isCompleted ? '완료 취소' : '완료 처리'}
             disabled={completing === m.id}
-          >{completing === m.id ? '⏳' : m.isCompleted ? '↩' : '✓'}</button>
-          <button
+            className={m.isCompleted ? 'group-hover:text-blue-600' : 'group-hover:text-green-600'}
+          />
+          <IconActionButton
+            icon={duplicating === m.id ? '⏳' : '⧉'}
+            label={duplicating === m.id ? '복제중' : '복제'}
             onClick={e => { e.stopPropagation(); handleDuplicate(m) }}
-            className="text-gray-300 hover:text-blue-500 text-sm px-1"
-            title="복제"
             disabled={duplicating === m.id}
-          >{duplicating === m.id ? '⏳' : '⧉'}</button>
-          <button
+            className="group-hover:text-blue-600"
+          />
+          <IconActionButton
+            icon="✕"
+            label="삭제"
             onClick={e => { e.stopPropagation(); handleDelete(m.id, m.name) }}
-            className="text-gray-300 hover:text-red-500 text-sm px-1"
-            title="삭제"
-          >✕</button>
+            className="group-hover:text-red-500"
+          />
         </div>
       )}
-      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight pr-14">{m.name}</h2>
+      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight pr-24">{m.name}</h2>
       <div className="text-sm text-gray-600 space-y-1">
         {m.date && <p>📅 {m.date}</p>}
         {m.location && <p>📍 {m.location}</p>}

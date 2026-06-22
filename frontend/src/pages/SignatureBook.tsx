@@ -21,21 +21,40 @@ const SignatureBook = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [completedOpen, setCompletedOpen] = useState(false)
+  const [completing, setCompleting] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const fetchTrainings = async () => {
-      try {
-        const response = await apiClient.get<Training[]>('/trainings')
-        setTrainings(response.data.filter(t => t.registrationBook))
-      } catch {
-        setError('연수 목록을 불러오지 못했습니다.')
-      } finally {
-        setLoading(false)
-      }
+  const role = localStorage.getItem('role') as string | null
+  const isTrainingAdmin = role === 'SUPER_ADMIN' || role === 'TRAINING_ADMIN'
+
+  const fetchTrainings = async () => {
+    try {
+      const response = await apiClient.get<Training[]>('/trainings')
+      setTrainings(response.data.filter(t => t.registrationBook))
+    } catch {
+      setError('연수 목록을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchTrainings()
   }, [])
+
+  const handleComplete = async (training: Training, completed: boolean) => {
+    const msg = completed ? '이 연수를 취합완료 처리하시겠습니까?' : '완료를 취소하시겠습니까?'
+    if (!confirm(msg)) return
+    setCompleting(training.id)
+    try {
+      await apiClient.patch(`/trainings/${training.id}/complete`, { isCompleted: completed })
+      await fetchTrainings()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '처리 중 오류가 발생했습니다.')
+    } finally {
+      setCompleting(null)
+    }
+  }
 
   const activeTrainings = trainings.filter(t => !t.isCompleted)
   const completedTrainings = trainings.filter(t => t.isCompleted)
@@ -44,13 +63,42 @@ const SignatureBook = () => {
     <div
       key={t.id}
       onClick={() => navigate(`/dashboard/signature-book/${t.id}`)}
-      className={`bg-white rounded-xl border-2 shadow hover:shadow-md cursor-pointer p-5 transition-all ${
+      className={`bg-white rounded-xl border-2 shadow hover:shadow-md cursor-pointer p-5 transition-all relative ${
         t.isCompleted
           ? 'border-gray-200 hover:border-gray-300 opacity-75'
           : 'border-blue-100 hover:border-blue-300'
       }`}
     >
-      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight">{t.name}</h2>
+      {isTrainingAdmin && (
+        <div className="absolute top-3 right-3">
+          {t.isCompleted ? (
+            <button
+              onClick={e => { e.stopPropagation(); handleComplete(t, false) }}
+              className="group flex flex-col items-center gap-0.5 px-2 py-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+              title="완료 취소"
+              disabled={completing === t.id}
+            >
+              <span className="text-sm leading-none">{completing === t.id ? '⏳' : '↩'}</span>
+              <span className="text-[10px] leading-tight text-gray-500 group-hover:text-blue-600 whitespace-nowrap">
+                {completing === t.id ? '처리중' : '완료취소'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); handleComplete(t, true) }}
+              className="group flex flex-col items-center gap-0.5 px-2 py-1 rounded hover:bg-teal-50 transition-colors disabled:opacity-50"
+              title="취합 완료 처리"
+              disabled={completing === t.id}
+            >
+              <span className="text-sm leading-none">{completing === t.id ? '⏳' : '✅'}</span>
+              <span className="text-[10px] leading-tight text-gray-500 group-hover:text-teal-600 font-medium whitespace-nowrap">
+                {completing === t.id ? '처리중' : '취합완료'}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+      <h2 className="font-bold text-gray-900 text-lg mb-2 leading-tight pr-16">{t.name}</h2>
       <div className="text-sm text-gray-600 space-y-1">
         {t.department && <p>🏢 {t.department}</p>}
         <p>👤 담당: {t.manager}</p>
