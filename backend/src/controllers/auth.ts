@@ -197,7 +197,32 @@ export const login = async (req: Request, res: Response) => {
     // 관리자 비번이면 SUPER_ADMIN
     const role: AppRole = 'SUPER_ADMIN'
 
-    const tokenPayload = { isAdmin: true, role, email: normalizedEmail || null, loginTime: Date.now() }
+    // JWT에 userId 포함 (권한 요청 승인 등 API에서 필요)
+    let adminUser = normalizedEmail
+      ? await prisma.user.findUnique({ where: { email: normalizedEmail } })
+      : null
+    if (!adminUser || (!adminUser.isAdmin && adminUser.role !== 'SUPER_ADMIN')) {
+      adminUser = await prisma.user.findFirst({
+        where: { OR: [{ isAdmin: true }, { role: 'SUPER_ADMIN' }] },
+        orderBy: { createdAt: 'asc' },
+      })
+    }
+
+    const tokenPayload: {
+      isAdmin: boolean
+      role: AppRole
+      email: string | null
+      loginTime: number
+      userId?: string
+    } = {
+      isAdmin: true,
+      role,
+      email: adminUser?.email || normalizedEmail || null,
+      loginTime: Date.now(),
+    }
+    if (adminUser) {
+      tokenPayload.userId = adminUser.id
+    }
 
     const token = jwt.sign(
       tokenPayload,
