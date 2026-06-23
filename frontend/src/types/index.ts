@@ -48,6 +48,20 @@ export interface TrainingParticipant {
 
 export type AppRole = 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER'
 
+export type RoleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export interface RoleRequest {
+  id: string
+  userId: string
+  message: string
+  status: RoleRequestStatus
+  rejectReason?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  createdAt: string
+  user?: Pick<User, 'id' | 'name' | 'email' | 'userType' | 'position'>
+}
+
 export interface AuthResponse {
   success: boolean
   token: string

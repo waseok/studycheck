@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers } from '../api/users'
+import { getRoleRequests, approveRoleRequest, rejectRoleRequest } from '../api/roleRequests'
 import { cleanupDuplicates } from '../api/participants'
 import { isAdmin } from '../api/auth'
-import { User } from '../types'
+import { User, RoleRequest } from '../types'
 import { getGroups, createGroup, updateGroup, deleteGroup, addGroupMembers, removeGroupMember, StaffGroup } from '../api/groups'
 
 const Users = () => {
@@ -30,6 +31,12 @@ const Users = () => {
   const [newGroupFromSelection, setNewGroupFromSelection] = useState(false)
   const [newGroupNameFromSelection, setNewGroupNameFromSelection] = useState('')
   const groupDropdownRef = useRef<HTMLDivElement>(null)
+
+  // 연수 관리 권한 요청 (최고관리자용)
+  const [pendingRoleRequests, setPendingRoleRequests] = useState<RoleRequest[]>([])
+  const [roleRequestLoading, setRoleRequestLoading] = useState(false)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -67,7 +74,51 @@ const Users = () => {
   useEffect(() => {
     fetchUsers()
     fetchGroups()
+    if (isAdmin()) {
+      fetchPendingRoleRequests()
+    }
   }, [])
+
+  const fetchPendingRoleRequests = async () => {
+    if (!isAdmin()) return
+    setRoleRequestLoading(true)
+    try {
+      const requests = await getRoleRequests()
+      setPendingRoleRequests(requests.filter((r) => r.status === 'PENDING'))
+    } catch (error) {
+      console.error('fetchPendingRoleRequests error:', error)
+    } finally {
+      setRoleRequestLoading(false)
+    }
+  }
+
+  const handleApproveRoleRequest = async (id: string, userName: string) => {
+    if (!confirm(`"${userName}" 님의 연수 관리 권한 요청을 승인하시겠습니까?`)) return
+    try {
+      await approveRoleRequest(id)
+      alert('연수 관리 권한이 승인되었습니다.')
+      await fetchPendingRoleRequests()
+      await fetchUsers()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '승인 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleRejectRoleRequest = async (id: string) => {
+    if (!rejectReason.trim()) {
+      alert('거절 사유를 입력해주세요.')
+      return
+    }
+    try {
+      await rejectRoleRequest(id, rejectReason.trim())
+      setRejectingId(null)
+      setRejectReason('')
+      alert('권한 요청이 거절되었습니다.')
+      await fetchPendingRoleRequests()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '거절 중 오류가 발생했습니다.')
+    }
+  }
 
   const fetchGroups = async () => {
     setGroupsLoading(true)
@@ -553,6 +604,84 @@ const Users = () => {
             </button>
           </div>
         </div>
+
+        {isAdmin() && pendingRoleRequests.length > 0 && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5">
+            <h2 className="text-lg font-bold text-amber-900 mb-3">
+              📋 연수 관리 권한 요청 ({pendingRoleRequests.length}건)
+            </h2>
+            {roleRequestLoading ? (
+              <p className="text-sm text-gray-500">로딩 중...</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingRoleRequests.map((req) => (
+                  <div key={req.id} className="bg-white rounded-xl border border-amber-200 p-4">
+                    <div className="flex flex-wrap justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {req.user?.name || '알 수 없음'}
+                          <span className="text-sm font-normal text-gray-500 ml-2">
+                            {req.user?.userType}{req.user?.position ? ` · ${req.user.position}` : ''}
+                          </span>
+                        </p>
+                        <p className="text-sm text-gray-600">{req.user?.email}</p>
+                        <p className="text-sm text-gray-800 mt-2">
+                          <span className="font-medium">요청 사유:</span> {req.message}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(req.createdAt).toLocaleString('ko-KR')}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <button
+                          onClick={() => handleApproveRoleRequest(req.id, req.user?.name || '요청자')}
+                          className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                        >
+                          승인
+                        </button>
+                        <button
+                          onClick={() => {
+                            setRejectingId(req.id)
+                            setRejectReason('')
+                          }}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
+                        >
+                          거절
+                        </button>
+                      </div>
+                    </div>
+                    {rejectingId === req.id && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">거절 사유 *</label>
+                        <textarea
+                          rows={2}
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="요청자에게 전달될 거절 사유를 입력하세요."
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                        <div className="flex gap-2 mt-2 justify-end">
+                          <button
+                            onClick={() => { setRejectingId(null); setRejectReason('') }}
+                            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                          >
+                            취소
+                          </button>
+                          <button
+                            onClick={() => handleRejectRoleRequest(req.id)}
+                            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+                          >
+                            거절 확정
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 탭 */}
         <div className="flex border-b border-gray-200 mb-4">

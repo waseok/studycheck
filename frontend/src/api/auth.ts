@@ -115,6 +115,24 @@ export const hasRole = (allowed: AppRole[]): boolean => {
   return false
 }
 
+// DB 기준 최신 권한으로 토큰·localStorage 동기화 (승인 후 메뉴 즉시 반영)
+export const syncRoleFromServer = async (): Promise<AppRole | null> => {
+  try {
+    const response = await apiClient.post<{ success: boolean; token: string; role: AppRole; isAdmin: boolean }>(
+      '/auth/refresh-token'
+    )
+    if (response.data.success && response.data.token) {
+      localStorage.setItem('token', response.data.token)
+      localStorage.setItem('role', response.data.role)
+      localStorage.setItem('isAdmin', String(response.data.isAdmin || false))
+      return response.data.role
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // Google 로그인
 export const loginGoogle = async (token: string): Promise<LoginResponse> => {
   const response = await apiClient.post<LoginResponse>('/auth/login-google', { token })
