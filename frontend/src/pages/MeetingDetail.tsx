@@ -5,7 +5,7 @@ import ParticipantAddModal from '../components/ParticipantAddModal'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import {
   getMeeting, saveMeetingSignature, deleteMeetingSignature,
-  completeMeeting, updateMeeting, addMeetingParticipants, addExternalMeetingParticipant, removeMeetingParticipant,
+  completeMeeting, updateMeeting, addMeetingParticipants, addExternalMeetingParticipant, updateMeetingParticipant, removeMeetingParticipant,
   MeetingDetail as MeetingDetailType, MeetingParticipant, createMeetingSignatureShareLink
 } from '../api/meetings'
 import { getUsers } from '../api/users'
@@ -36,6 +36,9 @@ const MeetingDetail = () => {
   const [shareLinkUrl, setShareLinkUrl] = useState('')
   const [shareLinkExpiresAt, setShareLinkExpiresAt] = useState<number | null>(null)
   const [creatingShareLink, setCreatingShareLink] = useState(false)
+  const [editingParticipant, setEditingParticipant] = useState<MeetingParticipant | null>(null)
+  const [editParticipantForm, setEditParticipantForm] = useState({ name: '', affiliation: '', position: '' })
+  const [savingParticipant, setSavingParticipant] = useState(false)
 
   const currentUserId = (() => {
     try {
@@ -134,6 +137,34 @@ const MeetingDetail = () => {
       await completeMeeting(meetingId, next)
       await fetchData()
     } catch { alert('처리 중 오류가 발생했습니다.') }
+  }
+
+  const openEditParticipant = (participant: MeetingParticipant) => {
+    setEditingParticipant(participant)
+    setEditParticipantForm({
+      name: participant.name,
+      affiliation: participant.userType === '외부 대상자' ? '' : participant.userType,
+      position: participant.position || ''
+    })
+  }
+
+  const handleSaveParticipant = async () => {
+    if (!meetingId || !editingParticipant) return
+    if (!editParticipantForm.name.trim()) { alert('이름을 입력해주세요.'); return }
+    try {
+      setSavingParticipant(true)
+      await updateMeetingParticipant(meetingId, editingParticipant.userId, {
+        name: editParticipantForm.name.trim(),
+        affiliation: editParticipantForm.affiliation.trim() || undefined,
+        position: editParticipantForm.position.trim() || undefined
+      })
+      setEditingParticipant(null)
+      await fetchData()
+    } catch (err: any) {
+      alert(err.response?.data?.error || '수정에 실패했습니다.')
+    } finally {
+      setSavingParticipant(false)
+    }
   }
 
   const handleRemoveParticipant = async (participant: MeetingParticipant) => {
@@ -457,6 +488,12 @@ const MeetingDetail = () => {
                       {isAdmin && (
                         <td className="border border-gray-400 px-1 py-1 text-center no-print">
                           <div className="flex flex-col gap-1 items-center">
+                            {p.isExternal && (
+                              <button
+                                onClick={() => openEditParticipant(p)}
+                                className="text-xs text-blue-500 hover:text-blue-700"
+                              >수정</button>
+                            )}
                             {p.signature && (
                               <button
                                 onClick={() => setDeleteConfirm(p.userId)}
@@ -523,6 +560,57 @@ const MeetingDetail = () => {
             <button onClick={() => setShowShareLinkModal(false)} className="w-full mt-3 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
               닫기
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 참가자 수정 모달 */}
+      {editingParticipant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">대상자 정보 수정</h3>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">이름 *</label>
+                <input
+                  value={editParticipantForm.name}
+                  onChange={e => setEditParticipantForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  placeholder="홍길동"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">소속</label>
+                <input
+                  value={editParticipantForm.affiliation}
+                  onChange={e => setEditParticipantForm(prev => ({ ...prev, affiliation: e.target.value }))}
+                  className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  placeholder="예: 파주교육지원청, 학부모"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">직위·역할</label>
+                <input
+                  value={editParticipantForm.position}
+                  onChange={e => setEditParticipantForm(prev => ({ ...prev, position: e.target.value }))}
+                  className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  placeholder="예: 강사, 학부모 대표"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingParticipant(null)}
+                disabled={savingParticipant}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-bold disabled:opacity-50"
+              >취소</button>
+              <button
+                onClick={handleSaveParticipant}
+                disabled={savingParticipant || !editParticipantForm.name.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold disabled:opacity-50"
+              >{savingParticipant ? '저장 중...' : '저장'}</button>
+            </div>
           </div>
         </div>
       )}
