@@ -51,7 +51,7 @@ export const listRequests = async (req: Request, res: Response) => {
     const userId = (req as any).user?.userId
     const isAdmin = (req as any).user?.isAdmin === true
 
-    if (!userId) return res.status(401).json({ error: '인증이 필요합니다.' })
+    if (!userId && !isAdmin) return res.status(401).json({ error: '인증이 필요합니다.' })
 
     if (isAdmin) {
       const pending = await getPendingRoleRequests()
@@ -87,7 +87,7 @@ export const approveRequest = async (req: Request, res: Response) => {
     const isAdmin = (req as any).user?.isAdmin === true
     const { id } = req.params
 
-    if (!adminId || !isAdmin) {
+    if (!isAdmin) {
       return res.status(403).json({ error: '최고 관리자 권한이 필요합니다.' })
     }
 
@@ -109,7 +109,7 @@ export const approveRequest = async (req: Request, res: Response) => {
 
     const updated = await updateRoleRequest(id, {
       status: 'APPROVED',
-      reviewedBy: adminId,
+      reviewedBy: adminId || 'super-admin',
       reviewedAt: new Date().toISOString(),
     })
 
@@ -128,7 +128,7 @@ export const rejectRequest = async (req: Request, res: Response) => {
     const { id } = req.params
     const { rejectReason } = req.body as { rejectReason?: string }
 
-    if (!adminId || !isAdmin) {
+    if (!isAdmin) {
       return res.status(403).json({ error: '최고 관리자 권한이 필요합니다.' })
     }
 
@@ -145,7 +145,7 @@ export const rejectRequest = async (req: Request, res: Response) => {
     const updated = await updateRoleRequest(id, {
       status: 'REJECTED',
       rejectReason: rejectReason.trim(),
-      reviewedBy: adminId,
+      reviewedBy: adminId || 'super-admin',
       reviewedAt: new Date().toISOString(),
     })
 
