@@ -303,6 +303,38 @@ export const register = async (req: Request, res: Response) => {
   }
 }
 
+// DB 기준 최신 권한으로 JWT 재발급 (승인 후 메뉴 즉시 반영용)
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+    if (!userId) {
+      return res.status(401).json({ error: '인증이 필요합니다.' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+    }
+
+    const role: AppRole = (user.role as AppRole) || (user.isAdmin ? 'SUPER_ADMIN' : 'USER')
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role, isAdmin: user.isAdmin, mustSetPin: user.mustSetPin, loginTime: Date.now() },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    )
+
+    res.json({
+      success: true,
+      token,
+      role,
+      isAdmin: user.isAdmin,
+    })
+  } catch (error) {
+    console.error('Refresh token error:', error)
+    res.status(500).json({ error: '토큰 갱신 중 오류가 발생했습니다.' })
+  }
+}
+
 // Google 로그인
 export const googleLogin = async (req: Request, res: Response) => {
   try {

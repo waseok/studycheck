@@ -1,6 +1,7 @@
-import { useMemo, useState, ReactNode } from 'react'
+import { useMemo, useState, useEffect, ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { logout } from '../api/auth'
+import { logout, getRole, syncRoleFromServer } from '../api/auth'
+import { AppRole } from '../types'
 
 interface LayoutProps {
   children: ReactNode
@@ -9,8 +10,19 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const role = (localStorage.getItem('role') as 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER' | null) || 'USER'
+  const [role, setRole] = useState<AppRole>(() => getRole())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // 승인 등으로 DB 권한이 바뀌면 메뉴를 자동 반영
+  useEffect(() => {
+    const sync = async () => {
+      const updatedRole = await syncRoleFromServer()
+      if (updatedRole) setRole(updatedRole)
+    }
+    sync()
+    const interval = setInterval(sync, 20000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleLogout = () => {
     logout()

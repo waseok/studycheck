@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getMyProfile, updateMyProfile } from '../api/users'
 import { getSavedSignature } from '../api/signatures'
-import { User } from '../types'
+import { getRole } from '../api/auth'
+import { createRoleRequest, getRoleRequests } from '../api/roleRequests'
+import { User, RoleRequest } from '../types'
 
 const Profile = () => {
   const [, setUser] = useState<User | null>(null)
@@ -19,12 +21,30 @@ const Profile = () => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [savedSignature, setSavedSignature] = useState<string | null>(null)
+  const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
+  const [requestMessage, setRequestMessage] = useState('')
+  const [requestSubmitting, setRequestSubmitting] = useState(false)
+  const [requestError, setRequestError] = useState('')
+  const [requestSuccess, setRequestSuccess] = useState('')
+  const currentRole = getRole()
 
   const userTypes = ['교원', '직원', '공무직', '기간제교사', '교육공무직', '교직원', '교육활동 참여자']
 
   useEffect(() => {
     fetchProfile()
+    if (getRole() === 'USER') {
+      fetchRoleRequests()
+    }
   }, [])
+
+  const fetchRoleRequests = async () => {
+    try {
+      const requests = await getRoleRequests()
+      setRoleRequests(requests)
+    } catch (error) {
+      console.error('권한 요청 조회 오류:', error)
+    }
+  }
 
   const fetchProfile = async () => {
     setLoading(true)
@@ -74,6 +94,33 @@ const Profile = () => {
     link.download = `내_서명_${new Date().toISOString().slice(0, 10)}.png`
     link.click()
   }
+
+  const handleRoleRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setRequestError('')
+    setRequestSuccess('')
+
+    if (!requestMessage.trim()) {
+      setRequestError('요청 사유를 입력해주세요.')
+      return
+    }
+
+    setRequestSubmitting(true)
+    try {
+      await createRoleRequest(requestMessage.trim())
+      setRequestMessage('')
+      setRequestSuccess('연수 관리 권한 요청이 접수되었습니다. 최고관리자의 승인을 기다려주세요.')
+      await fetchRoleRequests()
+    } catch (error: any) {
+      setRequestError(error.response?.data?.error || '권한 요청 중 오류가 발생했습니다.')
+    } finally {
+      setRequestSubmitting(false)
+    }
+  }
+
+  const latestRequest = roleRequests[0]
+  const hasPendingRequest = latestRequest?.status === 'PENDING'
+  const canRequestRole = currentRole === 'USER' && !hasPendingRequest
 
   if (loading) {
     return (
@@ -211,6 +258,91 @@ const Profile = () => {
             </div>
           </form>
         </div>
+
+        {currentRole === 'USER' && (
+          <div className="bg-white shadow rounded-lg p-6 mt-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">연수 관리 권한 요청</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              연수 관리 메뉴가 필요하면 최고관리자에게 권한을 요청할 수 있습니다.
+            </p>
+
+            {requestError && (
+              <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {requestError}
+              </div>
+            )}
+            {requestSuccess && (
+              <div className="bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                {requestSuccess}
+              </div>
+            )}
+
+            {latestRequest && (
+              <div className={`rounded-md p-4 mb-4 border ${
+                latestRequest.status === 'PENDING'
+                  ? 'bg-yellow-50 border-yellow-300'
+                  : latestRequest.status === 'APPROVED'
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-red-50 border-red-300'
+              }`}>
+                <p className="font-semibold text-gray-900 mb-1">
+                  {latestRequest.status === 'PENDING' && '⏳ 검토 중'}
+                  {latestRequest.status === 'APPROVED' && '✅ 승인됨'}
+                  {latestRequest.status === 'REJECTED' && '❌ 거절됨'}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">요청 사유:</span> {latestRequest.message}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  요청일: {new Date(latestRequest.createdAt).toLocaleString('ko-KR')}
+                </p>
+                {latestRequest.status === 'REJECTED' && latestRequest.rejectReason && (
+                  <p className="text-sm text-red-700 mt-2">
+                    <span className="font-medium">거절 사유:</span> {latestRequest.rejectReason}
+                  </p>
+                )}
+                {latestRequest.status === 'APPROVED' && (
+                  <p className="text-sm text-green-700 mt-2">
+                    연수 관리 권한이 부여되었습니다. 잠시 후 메뉴에 「연수 관리」가 표시됩니다.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {canRequestRole && (
+              <form onSubmit={handleRoleRequest} className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    요청 사유 *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    placeholder="예: 교무부 담당으로 연수 관리가 필요합니다."
+                    className="block w-full rounded-md border-2 border-gray-400 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={requestSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {requestSubmitting ? '요청 중...' : '연수 관리 권한 요청하기'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {hasPendingRequest && (
+              <p className="text-sm text-yellow-800">
+                이미 검토 중인 요청이 있습니다. 승인 또는 거절 후 다시 요청할 수 있습니다.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="bg-white shadow rounded-lg p-6 mt-4">
           <h2 className="text-xl font-bold text-gray-900 mb-3">저장된 서명</h2>

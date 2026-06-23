@@ -16,6 +16,7 @@ import signatureRoutes from './routes/signatures'
 import trainingNoticeRoutes from './routes/trainingNotices'
 import meetingRoutes from './routes/meetings'
 import groupRoutes from './routes/groups'
+import roleRequestRoutes from './routes/roleRequests'
 
 // 리마인더 서비스 초기화 (스케줄러 시작)
 import './services/reminder'
@@ -73,6 +74,7 @@ app.use('/api/signatures', signatureRoutes)
 app.use('/api/training-notices', trainingNoticeRoutes)
 app.use('/api/meetings', meetingRoutes)
 app.use('/api/groups', groupRoutes)
+app.use('/api/role-requests', roleRequestRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => {

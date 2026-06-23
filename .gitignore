@@ -45,6 +45,9 @@ prisma/migrations/
 *.db
 *.db-journal
 
+# 권한 요청 로컬 저장 (DB 마이그레이션 없이 파일로 관리)
+backend/src/data/
+
 # OS
 .DS_Store
 Thumbs.db
