@@ -48,7 +48,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         participants: {
           include: {
             user: {
-              select: { id: true, name: true, userType: true, position: true, grade: true, class: true }
+              select: { id: true, name: true, userType: true, position: true, grade: true, class: true, email: true }
             }
           }
         },
@@ -68,6 +68,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         position: p.user.position,
         grade: p.user.grade,
         class: p.user.class,
+        isExternal: p.user.email.endsWith('@studycheck.invalid'),
         signature: signatureMap.get(p.userId) ?? null
       }))
       .sort((a, b) => {
@@ -237,6 +238,39 @@ export const addExternalParticipant = async (req: Request, res: Response) => {
   }
 }
 
+// 외부 대상자 정보 수정 (관리자)
+export const updateParticipant = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId, userId } = req.params
+    const { name, affiliation, position } = req.body as { name?: string; affiliation?: string; position?: string }
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    if (!user) return res.status(404).json({ error: '참가자를 찾을 수 없습니다.' })
+    if (!user.email.endsWith('@studycheck.invalid')) {
+      return res.status(400).json({ error: '교직원 계정은 수정할 수 없습니다.' })
+    }
+
+    const participant = await prisma.meetingParticipant.findFirst({ where: { meetingId, userId } })
+    if (!participant) return res.status(404).json({ error: '해당 회의의 참가자가 아닙니다.' })
+
+    const trimmedName = name?.trim()
+    if (!trimmedName) return res.status(400).json({ error: '이름을 입력해주세요.' })
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: trimmedName,
+        userType: affiliation?.trim() || '외부 대상자',
+        position: position?.trim() || null
+      }
+    })
+    res.json({ success: true })
+  } catch (error) {
+    console.error('updateParticipant error:', error)
+    res.status(500).json({ error: '참가자 정보 수정 중 오류가 발생했습니다.' })
+  }
+}
+
 // 참가자 제거 (관리자)
 export const removeParticipant = async (req: Request, res: Response) => {
   try {
@@ -333,7 +367,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, name: true, userType: true, position: true, grade: true, class: true } }
+            user: { select: { id: true, name: true, userType: true, position: true, grade: true, class: true, email: true } }
           }
         },
         signatures: true
@@ -350,6 +384,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
       position: p.user.position,
       grade: p.user.grade,
       class: p.user.class,
+      isExternal: p.user.email.endsWith('@studycheck.invalid'),
       signature: signatureMap.get(p.userId) ?? null
     }))
 

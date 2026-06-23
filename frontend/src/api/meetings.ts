@@ -15,6 +15,7 @@ export interface MeetingParticipant {
   position: string | null
   grade: string | null
   class: string | null
+  isExternal: boolean
   signature: MeetingSignatureInfo | null
 }
 
@@ -98,6 +99,14 @@ export const addExternalMeetingParticipant = async (
   data: { name: string; affiliation?: string; position?: string }
 ): Promise<void> => {
   await apiClient.post(`/meetings/${meetingId}/participants/external`, data)
+}
+
+export const updateMeetingParticipant = async (
+  meetingId: string,
+  userId: string,
+  data: { name: string; affiliation?: string; position?: string }
+): Promise<void> => {
+  await apiClient.patch(`/meetings/${meetingId}/participants/${userId}`, data)
 }
 
 export const removeMeetingParticipant = async (meetingId: string, userId: string): Promise<void> => {
