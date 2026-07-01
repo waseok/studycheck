@@ -3,7 +3,7 @@ services:
     name: training-platform-backend
     env: node
     buildCommand: npm ci --include=dev && npm run build && npx prisma db push
-    startCommand: node dist/index.js
+    startCommand: npx prisma db push && npm start
     envVars:
       - key: NODE_ENV
         value: production
