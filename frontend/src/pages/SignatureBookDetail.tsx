@@ -628,6 +628,7 @@ const SignatureBookDetail = () => {
                             >
                               대상 제외
                             </button>
+                            {!p.signature && (
                             <button
                               onClick={() => handleAbsenceReason(p)}
                               className="text-[10px] text-orange-500 hover:text-orange-700"
@@ -635,6 +636,7 @@ const SignatureBookDetail = () => {
                             >
                               {p.absenceReason ? '불참 수정' : '불참'}
                             </button>
+                            )}
                           </div>
                         </td>
                       )}
