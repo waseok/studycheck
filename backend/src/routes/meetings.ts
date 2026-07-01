@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { authMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 import {
   getMeetings, getMeeting, createMeeting, updateMeeting,
-  deleteMeeting, completeMeeting, addParticipants, addExternalParticipant, updateParticipant, removeParticipant,
+  deleteMeeting, completeMeeting, addParticipants, addExternalParticipant, updateParticipant, removeParticipant, updateAbsenceReason,
   saveMeetingSignature, deleteMeetingSignature, createMeetingSignatureLink,
   getMeetingByAccessToken, saveMeetingSignatureByAccessToken
 } from '../controllers/meetings'
@@ -19,6 +19,7 @@ router.post('/:id/participants', authMiddleware, trainingAdminMiddleware, addPar
 router.post('/:id/participants/external', authMiddleware, trainingAdminMiddleware, addExternalParticipant)
 router.patch('/:id/participants/:userId', authMiddleware, trainingAdminMiddleware, updateParticipant)
 router.delete('/:id/participants/:userId', authMiddleware, trainingAdminMiddleware, removeParticipant)
+router.patch('/:id/participants/:userId/absence', authMiddleware, trainingAdminMiddleware, updateAbsenceReason)
 router.post('/:id/signature', authMiddleware, saveMeetingSignature)
 router.delete('/:id/signature/:userId', authMiddleware, trainingAdminMiddleware, deleteMeetingSignature)
 router.post('/:id/share-link', authMiddleware, trainingAdminMiddleware, createMeetingSignatureLink)

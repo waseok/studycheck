@@ -16,6 +16,7 @@ export interface MeetingParticipant {
   grade: string | null
   class: string | null
   isExternal: boolean
+  absenceReason: string | null
   signature: MeetingSignatureInfo | null
 }
 
@@ -111,6 +112,14 @@ export const updateMeetingParticipant = async (
 
 export const removeMeetingParticipant = async (meetingId: string, userId: string): Promise<void> => {
   await apiClient.delete(`/meetings/${meetingId}/participants/${userId}`)
+}
+
+export const updateMeetingAbsenceReason = async (
+  meetingId: string,
+  userId: string,
+  absenceReason: string | null
+): Promise<void> => {
+  await apiClient.patch(`/meetings/${meetingId}/participants/${userId}/absence`, { absenceReason })
 }
 
 export const saveMeetingSignature = async (

@@ -119,7 +119,7 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
         </aside>
 
-        <main className="flex-1 py-6 md:py-8 md:px-6 lg:px-8">
+        <main className="flex-1 py-6 md:py-8 md:px-6 lg:px-8 min-w-0 overflow-x-hidden">
           {children}
         </main>
       </div>

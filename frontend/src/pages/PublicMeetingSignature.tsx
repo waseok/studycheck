@@ -15,6 +15,7 @@ const PublicMeetingSignature = () => {
   const [data, setData] = useState<Awaited<ReturnType<typeof getPublicMeeting>> | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
   const [hideSigned, setHideSigned] = useState(false)
+  const [signComplete, setSignComplete] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!meetingId || !token) {
@@ -25,9 +26,6 @@ const PublicMeetingSignature = () => {
     try {
       const result = await getPublicMeeting(meetingId, token)
       setData(result)
-      const sorted = [...result.participants].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-      const defaultUserId = sorted.find(p => !p.signature)?.userId || sorted[0]?.userId || ''
-      setSelectedUserId(defaultUserId)
     } catch (err: any) {
       setError(err?.response?.data?.error || '서명 정보를 불러오지 못했습니다.')
     } finally {
@@ -41,18 +39,21 @@ const PublicMeetingSignature = () => {
 
   const handleSign = async () => {
     if (!meetingId || !token || !signaturePadRef.current) return
-    if (signaturePadRef.current.isEmpty()) {
-      alert('서명을 입력해주세요.')
+    if (!selectedUserId) {
+      alert('서명하기 전에 본인의 이름을 선택하세요!')
       return
     }
-    if (!selectedUserId) {
-      alert('서명 대상을 선택해주세요.')
+    if (signaturePadRef.current.isEmpty()) {
+      alert('서명을 입력해주세요.')
       return
     }
     setSaving(true)
     try {
       await savePublicMeetingSignature(meetingId, token, signaturePadRef.current.toDataURL(), selectedUserId)
-      await fetchData()
+      setSignComplete(true)
+      setTimeout(() => {
+        window.close()
+      }, 1500)
     } catch (err: any) {
       alert(err?.response?.data?.error || '서명 저장에 실패했습니다.')
     } finally {
@@ -62,24 +63,28 @@ const PublicMeetingSignature = () => {
 
   const participant = data?.participants?.find((p: MeetingParticipant) => p.userId === selectedUserId)
   const completed = Boolean(participant?.signature)
+  const isAbsent = Boolean(participant?.absenceReason)
   const sortedParticipants = useMemo(() => {
     return [...(data?.participants ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
   }, [data?.participants])
   const visibleParticipants = hideSigned
-    ? sortedParticipants.filter((p) => !p.signature)
+    ? sortedParticipants.filter((p) => !p.signature && !p.absenceReason)
     : sortedParticipants
 
-  useEffect(() => {
-    if (!visibleParticipants.length) {
-      setSelectedUserId('')
-      return
-    }
-    if (!visibleParticipants.some((p) => p.userId === selectedUserId)) {
-      setSelectedUserId(visibleParticipants[0].userId)
-    }
-  }, [visibleParticipants, selectedUserId])
-
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">불러오는 중...</div>
+
+  if (signComplete) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow border border-green-200 p-8 text-center">
+          <div className="text-5xl mb-4">✅</div>
+          <h1 className="text-xl font-bold text-green-800 mb-2">서명이 완료되었습니다</h1>
+          <p className="text-gray-600 text-sm">이 페이지를 닫아주세요.</p>
+          <p className="text-gray-400 text-xs mt-3">창이 자동으로 닫히지 않으면 브라우저 탭을 직접 닫아주세요.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -89,6 +94,9 @@ const PublicMeetingSignature = () => {
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{error}</div>}
         {sortedParticipants.length ? (
           <div className="mb-4 text-sm text-slate-700">
+            <div className="mb-3 bg-amber-50 border-2 border-amber-400 rounded-lg px-4 py-3 text-amber-900 font-semibold text-center">
+              ⚠️ 서명하기 전에 본인의 이름을 선택하세요!
+            </div>
             <label className="inline-flex items-center gap-2 mb-2">
               <input
                 type="checkbox"
@@ -103,16 +111,25 @@ const PublicMeetingSignature = () => {
               onChange={(e) => setSelectedUserId(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             >
+              <option value="">▼ 본인의 이름을 선택하세요</option>
               {visibleParticipants.map((p) => (
                 <option key={p.userId} value={p.userId}>
-                  {p.name} ({p.signature ? '서명완료' : '미서명'})
+                  {p.name} ({p.signature ? '서명완료' : p.absenceReason ? '불참' : '미서명'})
                 </option>
               ))}
             </select>
           </div>
         ) : null}
-        {completed ? (
+        {!selectedUserId ? (
+          <div className="bg-gray-50 border border-gray-200 text-gray-500 rounded px-4 py-6 text-center text-sm">
+            위 목록에서 본인의 이름을 선택한 후 서명해 주세요.
+          </div>
+        ) : completed ? (
           <div className="bg-green-50 border border-green-200 text-green-700 rounded px-4 py-3">이미 서명이 완료되었습니다.</div>
+        ) : isAbsent ? (
+          <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded px-4 py-3">
+            불참 처리된 대상자입니다. ({participant?.absenceReason})
+          </div>
         ) : (
           <>
             <SignaturePad ref={signaturePadRef} />

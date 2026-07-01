@@ -47,3 +47,11 @@ export const addExternalTrainingParticipant = async (
 export const removeTrainingParticipant = async (trainingId: string, userId: string): Promise<void> => {
   await apiClient.delete(`/participants/training/${trainingId}/user/${userId}`)
 }
+
+export const updateTrainingAbsenceReason = async (
+  trainingId: string,
+  userId: string,
+  absenceReason: string | null
+): Promise<void> => {
+  await apiClient.patch(`/participants/training/${trainingId}/user/${userId}/absence`, { absenceReason })
+}

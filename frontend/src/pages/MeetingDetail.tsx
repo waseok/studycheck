@@ -5,7 +5,7 @@ import ParticipantAddModal from '../components/ParticipantAddModal'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import {
   getMeeting, saveMeetingSignature, deleteMeetingSignature,
-  completeMeeting, updateMeeting, addMeetingParticipants, addExternalMeetingParticipant, updateMeetingParticipant, removeMeetingParticipant,
+  completeMeeting, updateMeeting, addMeetingParticipants, addExternalMeetingParticipant, updateMeetingParticipant, removeMeetingParticipant, updateMeetingAbsenceReason,
   MeetingDetail as MeetingDetailType, MeetingParticipant, createMeetingSignatureShareLink
 } from '../api/meetings'
 import { getUsers } from '../api/users'
@@ -175,6 +175,22 @@ const MeetingDetail = () => {
       await removeMeetingParticipant(meetingId, participant.userId)
       await fetchData()
     } catch { alert('대상자 제거에 실패했습니다.') }
+  }
+
+  const handleAbsenceReason = async (participant: MeetingParticipant) => {
+    if (!meetingId) return
+    const current = participant.absenceReason || ''
+    const input = prompt(
+      `${participant.name}님의 불참 사유를 입력하세요.\n(빈 칸으로 저장하면 불참 처리를 해제합니다)`,
+      current
+    )
+    if (input === null) return
+    try {
+      await updateMeetingAbsenceReason(meetingId, participant.userId, input.trim() || null)
+      await fetchData()
+    } catch (err: any) {
+      alert(err.response?.data?.error || '불참 사유 저장에 실패했습니다.')
+    }
   }
 
   const getShareLinkStorageKey = () => `meeting-share-link-${meetingId}`
@@ -474,6 +490,12 @@ const MeetingDetail = () => {
                       <td className="border border-gray-400 px-2 py-3 text-center" style={{ minHeight: '48px' }}>
                         {p.signature ? (
                           <img src={p.signature.signatureImage} alt="서명" className="max-h-12 mx-auto object-contain" />
+                        ) : p.absenceReason ? (
+                          <div className="text-xs text-gray-500 leading-tight px-1">
+                            <span className="text-red-500 font-medium">불참</span>
+                            <br />
+                            <span className="text-[10px]">{p.absenceReason}</span>
+                          </div>
                         ) : (p.userId === currentUserId || isAdmin) ? (
                           <button
                             onClick={() => setSigningUserId(p.userId)}
@@ -504,6 +526,13 @@ const MeetingDetail = () => {
                               onClick={() => handleRemoveParticipant(p)}
                               className="text-xs text-gray-500 hover:text-red-700"
                             >대상 제외</button>
+                            <button
+                              onClick={() => handleAbsenceReason(p)}
+                              className="text-[10px] text-orange-500 hover:text-orange-700"
+                              title={p.absenceReason || '불참 사유 입력'}
+                            >
+                              {p.absenceReason ? '불참 수정' : '불참'}
+                            </button>
                           </div>
                         </td>
                       )}

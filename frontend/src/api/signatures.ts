@@ -24,6 +24,7 @@ export interface SignatureParticipant {
   position: string | null
   grade: string | null
   class: string | null
+  absenceReason: string | null
   signature: SignatureInfo | null
 }
 

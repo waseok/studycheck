@@ -73,6 +73,7 @@ model TrainingParticipant {
   completionNumber String?  @map("completion_number") // 이수번호
   status          String    @default("pending") // pending, completed
   completedAt     DateTime? @map("completed_at")
+  absenceReason   String?   @map("absence_reason") // 불참 사유
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -120,10 +121,11 @@ model Meeting {
 }
 
 model MeetingParticipant {
-  id        String   @id @default(uuid())
-  meetingId String   @map("meeting_id")
-  userId    String   @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  meetingId     String   @map("meeting_id")
+  userId        String   @map("user_id")
+  absenceReason String?  @map("absence_reason") // 불참 사유
+  createdAt     DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

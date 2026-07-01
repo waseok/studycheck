@@ -35,6 +35,7 @@ export const getSignatures = async (req: Request, res: Response) => {
       position: p.user.position,
       grade: p.user.grade,
       class: p.user.class,
+      absenceReason: p.absenceReason,
       signature: signatureMap.has(p.user.id) ? {
         id: (signatureMap.get(p.user.id) as any).id,
         signatureImage: (signatureMap.get(p.user.id) as any).signatureImage,
@@ -101,6 +102,7 @@ export const saveSignature = async (req: Request, res: Response) => {
       where: { trainingId_userId: { trainingId, userId } }
     })
     if (!participant) return res.status(403).json({ error: '해당 연수의 참여자가 아닙니다.' })
+    if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 
@@ -226,6 +228,7 @@ export const getTrainingSignaturesByAccessToken = async (req: Request, res: Resp
       position: p.user.position,
       grade: p.user.grade,
       class: p.user.class,
+      absenceReason: p.absenceReason,
       signature: signatureMap.has(p.user.id) ? {
         id: (signatureMap.get(p.user.id) as any).id,
         signatureImage: (signatureMap.get(p.user.id) as any).signatureImage,
@@ -262,6 +265,7 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
       where: { trainingId_userId: { trainingId, userId } }
     })
     if (!participant) return res.status(403).json({ error: '해당 연수의 참여자가 아닙니다.' })
+    if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 

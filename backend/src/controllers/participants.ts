@@ -392,3 +392,27 @@ export const removeParticipant = async (req: Request, res: Response) => {
     res.status(500).json({ error: '참여자 제거 중 오류가 발생했습니다.' })
   }
 }
+
+// 불참 사유 등록/수정 (관리자)
+export const updateAbsenceReason = async (req: Request, res: Response) => {
+  try {
+    const { trainingId, userId } = req.params
+    const { absenceReason } = req.body as { absenceReason?: string | null }
+
+    const participant = await prisma.trainingParticipant.findUnique({
+      where: { trainingId_userId: { trainingId, userId } }
+    })
+    if (!participant) return res.status(404).json({ error: '참여자를 찾을 수 없습니다.' })
+
+    const trimmed = absenceReason?.trim() || null
+    await prisma.trainingParticipant.update({
+      where: { trainingId_userId: { trainingId, userId } },
+      data: { absenceReason: trimmed }
+    })
+
+    res.json({ success: true, absenceReason: trimmed })
+  } catch (error) {
+    console.error('Update absence reason error:', error)
+    res.status(500).json({ error: '불참 사유 저장 중 오류가 발생했습니다.' })
+  }
+}

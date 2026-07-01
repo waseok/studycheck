@@ -69,6 +69,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         grade: p.user.grade,
         class: p.user.class,
         isExternal: p.user.email.endsWith('@studycheck.invalid'),
+        absenceReason: p.absenceReason,
         signature: signatureMap.get(p.userId) ?? null
       }))
       .sort((a, b) => {
@@ -283,6 +284,30 @@ export const removeParticipant = async (req: Request, res: Response) => {
   }
 }
 
+// 불참 사유 등록/수정 (관리자)
+export const updateAbsenceReason = async (req: Request, res: Response) => {
+  try {
+    const { id: meetingId, userId } = req.params
+    const { absenceReason } = req.body as { absenceReason?: string | null }
+
+    const participant = await prisma.meetingParticipant.findUnique({
+      where: { meetingId_userId: { meetingId, userId } }
+    })
+    if (!participant) return res.status(404).json({ error: '참가자를 찾을 수 없습니다.' })
+
+    const trimmed = absenceReason?.trim() || null
+    await prisma.meetingParticipant.update({
+      where: { meetingId_userId: { meetingId, userId } },
+      data: { absenceReason: trimmed }
+    })
+
+    res.json({ success: true, absenceReason: trimmed })
+  } catch (error) {
+    console.error('updateAbsenceReason error:', error)
+    res.status(500).json({ error: '불참 사유 저장 중 오류가 발생했습니다.' })
+  }
+}
+
 // 서명 저장 (본인 또는 관리자 대리서명)
 export const saveMeetingSignature = async (req: Request, res: Response) => {
   try {
@@ -303,6 +328,7 @@ export const saveMeetingSignature = async (req: Request, res: Response) => {
       where: { meetingId_userId: { meetingId, userId } }
     })
     if (!participant) return res.status(403).json({ error: '해당 회의의 참가자가 아닙니다.' })
+    if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 
@@ -385,6 +411,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
       grade: p.user.grade,
       class: p.user.class,
       isExternal: p.user.email.endsWith('@studycheck.invalid'),
+      absenceReason: p.absenceReason,
       signature: signatureMap.get(p.userId) ?? null
     }))
 
@@ -425,6 +452,7 @@ export const saveMeetingSignatureByAccessToken = async (req: Request, res: Respo
       where: { meetingId_userId: { meetingId, userId } }
     })
     if (!participant) return res.status(403).json({ error: '해당 회의의 참가자가 아닙니다.' })
+    if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
 
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 

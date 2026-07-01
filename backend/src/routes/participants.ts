@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getParticipants, updateCompletionNumber, getMyTrainings, cleanupDuplicates, cancelCompletion, addParticipant, addExternalParticipant, removeParticipant } from '../controllers/participants'
+import { getParticipants, updateCompletionNumber, getMyTrainings, cleanupDuplicates, cancelCompletion, addParticipant, addExternalParticipant, removeParticipant, updateAbsenceReason } from '../controllers/participants'
 import { authMiddleware, adminMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 
 const router = Router()
@@ -12,5 +12,6 @@ router.post('/cleanup-duplicates', authMiddleware, adminMiddleware, cleanupDupli
 router.post('/training/:trainingId/add', authMiddleware, trainingAdminMiddleware, addParticipant)
 router.post('/training/:trainingId/add-external', authMiddleware, trainingAdminMiddleware, addExternalParticipant)
 router.delete('/training/:trainingId/user/:userId', authMiddleware, trainingAdminMiddleware, removeParticipant)
+router.patch('/training/:trainingId/user/:userId/absence', authMiddleware, trainingAdminMiddleware, updateAbsenceReason)
 
 export default router

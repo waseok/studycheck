@@ -474,10 +474,10 @@ const Users = () => {
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-blue-800 mb-6">👥 교직원 관리</h1>
-          <div className="flex gap-2 flex-wrap justify-end">
+      <div className="max-w-6xl mx-auto w-full space-y-4 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <h1 className="text-3xl sm:text-4xl font-bold text-blue-800">👥 교직원 관리</h1>
+          <div className="flex gap-2 flex-wrap justify-start sm:justify-end">
             {selectedIds.size > 0 && (
               <div className="relative" ref={groupDropdownRef}>
                 <button
@@ -606,33 +606,33 @@ const Users = () => {
         </div>
 
         {isAdmin() && pendingRoleRequests.length > 0 && (
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5">
-            <h2 className="text-lg font-bold text-amber-900 mb-3">
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 overflow-hidden">
+            <h2 className="text-base font-bold text-amber-900 mb-2">
               📋 연수 관리 권한 요청 ({pendingRoleRequests.length}건)
             </h2>
             {roleRequestLoading ? (
               <p className="text-sm text-gray-500">로딩 중...</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {pendingRoleRequests.map((req) => (
-                  <div key={req.id} className="bg-white rounded-xl border border-amber-200 p-4">
-                    <div className="flex flex-wrap justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-gray-900">
+                  <div key={req.id} className="bg-white rounded-lg border border-amber-200 p-3 overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 truncate">
                           {req.user?.name || '알 수 없음'}
                           <span className="text-sm font-normal text-gray-500 ml-2">
                             {req.user?.userType}{req.user?.position ? ` · ${req.user.position}` : ''}
                           </span>
                         </p>
-                        <p className="text-sm text-gray-600">{req.user?.email}</p>
-                        <p className="text-sm text-gray-800 mt-2">
+                        <p className="text-sm text-gray-600 truncate">{req.user?.email}</p>
+                        <p className="text-sm text-gray-800 mt-1 break-words">
                           <span className="font-medium">요청 사유:</span> {req.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(req.createdAt).toLocaleString('ko-KR')}
                         </p>
                       </div>
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleApproveRoleRequest(req.id, req.user?.name || '요청자')}
                           className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
