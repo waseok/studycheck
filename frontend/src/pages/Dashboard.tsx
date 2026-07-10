@@ -140,8 +140,8 @@ const Dashboard = () => {
                     key={participant.id} 
                     className={`p-4 rounded-xl border-2 ${
                       participant.status !== 'completed' 
-                        ? 'border-yellow-300 bg-yellow-50' 
-                        : 'border-green-200 bg-green-50'
+                        ? 'border-red-300 bg-red-50' 
+                        : 'border-blue-200 bg-blue-50'
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -156,10 +156,10 @@ const Dashboard = () => {
                         )}
                       </div>
                       <span
-                        className={`px-3 py-1 text-sm font-medium rounded-full ${
+                        className={`px-3 py-1 text-sm font-bold rounded ${
                           participant.status === 'completed'
-                            ? 'bg-green-200 text-green-800'
-                            : 'bg-yellow-200 text-yellow-800'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-red-600 text-white'
                         }`}
                       >
                         {participant.status === 'completed' ? '완료' : '미완료'}

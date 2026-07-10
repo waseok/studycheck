@@ -146,9 +146,13 @@ const TrainingCollection = () => {
     }
   }
 
-  const handleUpdateCompletionNumber = async (participantId: string, completionNumber: string) => {
+  const handleUpdateCompletionNumber = async (
+    participantId: string,
+    completionNumber: string,
+    completionName?: string
+  ) => {
     try {
-      await updateCompletionNumber(participantId, completionNumber)
+      await updateCompletionNumber(participantId, completionNumber, completionName)
       fetchData()
     } catch (error: any) {
       alert(error.response?.data?.error || '이수번호 입력 중 오류가 발생했습니다.')
@@ -262,6 +266,7 @@ const TrainingCollection = () => {
       '학년': participant.user?.grade || '-',
       '반': participant.user?.class || '-',
       '성함': participant.user?.name || '-',
+      '연수명': participant.completionName || '-',
       '이수번호': participant.completionNumber || '-',
       '상태': participant.status === 'completed' ? '완료' : '미완료',
       '이메일': participant.user?.email || '-',
@@ -463,61 +468,43 @@ const TrainingCollection = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    순번
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    직위
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    학년
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    반
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    성함
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
+                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">#</th>
+                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
+                  <th className="w-12 px-2 py-2 text-left text-xs font-medium text-gray-500">학년</th>
+                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">반</th>
+                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">성함</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 relative min-w-[11rem]">
                     <div className="flex items-center gap-1">
-                      이수번호
+                      연수명 / 이수번호
                       <button
                         type="button"
                         onClick={() => setShowCompletionHelp(!showCompletionHelp)}
-                        className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-bold hover:bg-blue-200 flex items-center justify-center flex-shrink-0"
+                        className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold hover:bg-blue-200 flex items-center justify-center flex-shrink-0"
                         title="이수번호 안내"
                       >
                         ?
                       </button>
                     </div>
                     {showCompletionHelp && (
-                      <div className="absolute z-10 mt-1 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg shadow-lg text-xs text-gray-700 normal-case font-normal w-64">
+                      <div className="absolute z-10 mt-1 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg shadow-lg text-xs text-gray-700 normal-case font-normal w-64 left-0">
                         <p className="font-bold text-yellow-800 mb-1">📋 이수번호 찾는 방법</p>
                         <p>1. 연수 플랫폼(나이스, 티처빌 등)에 로그인</p>
                         <p>2. "나의 학습방" 또는 "학습이력" 메뉴로 이동</p>
                         <p>3. 해당 연수의 이수증에서 <strong>이수번호</strong>를 확인</p>
-                        <p className="mt-1 text-yellow-700">* 이수증 발급 후 번호를 입력해주세요</p>
+                        <p className="mt-1 text-yellow-700">* 이수증 발급 후 연수명·번호를 입력해주세요</p>
                       </div>
                     )}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    상태
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이메일
-                  </th>
+                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">상태</th>
+                  <th className="w-36 px-2 py-2 text-left text-xs font-medium text-gray-500 hidden lg:table-cell">이메일</th>
                   {adminUser && (
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      수정
-                    </th>
+                    <th className="w-28 px-2 py-2 text-right text-xs font-medium text-gray-500">수정</th>
                   )}
                   {adminUser && (
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      순서
-                    </th>
+                    <th className="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500">순서</th>
                   )}
                 </tr>
               </thead>
@@ -560,7 +547,7 @@ interface ParticipantRowProps {
   index: number
   totalCount: number
   participant: TrainingParticipant
-  onUpdate: (id: string, completionNumber: string) => void
+  onUpdate: (id: string, completionNumber: string, completionName?: string) => void
   onCancel: (id: string) => void
   onRemove: () => void
   isAdmin: boolean
@@ -571,90 +558,114 @@ interface ParticipantRowProps {
 const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, onRemove, isAdmin, onMoveUp, onMoveDown }: ParticipantRowProps) => {
   const [editing, setEditing] = useState(false)
   const [completionNumber, setCompletionNumber] = useState(participant.completionNumber || '')
+  const [completionName, setCompletionName] = useState(participant.completionName || '')
+
+  // 참여자 데이터가 갱신되면 편집 중인 값이 아닌 표시용 상태도 동기화
+  useEffect(() => {
+    if (!editing) {
+      setCompletionNumber(participant.completionNumber || '')
+      setCompletionName(participant.completionName || '')
+    }
+  }, [participant.completionNumber, participant.completionName, editing])
 
   const handleSubmit = () => {
-    if (completionNumber.trim()) {
-      onUpdate(participant.id, completionNumber.trim())
-      setEditing(false)
+    if (!completionNumber.trim()) {
+      alert('이수번호를 입력해주세요.')
+      return
     }
+    onUpdate(participant.id, completionNumber.trim(), completionName.trim() || undefined)
+    setEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setCompletionNumber(participant.completionNumber || '')
+    setCompletionName(participant.completionName || '')
+    setEditing(false)
   }
 
   return (
-    <tr>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {index + 1}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {participant.user?.position || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {participant.user?.grade || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {participant.user?.class || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {participant.user?.name || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+    <tr className="align-top">
+      <td className="px-2 py-2 text-sm font-medium text-gray-900">{index + 1}</td>
+      <td className="px-2 py-2 text-sm text-gray-500 truncate">{participant.user?.position || '-'}</td>
+      <td className="px-2 py-2 text-sm text-gray-500">{participant.user?.grade || '-'}</td>
+      <td className="px-2 py-2 text-sm text-gray-500">{participant.user?.class || '-'}</td>
+      <td className="px-2 py-2 text-sm font-medium text-gray-900 truncate">{participant.user?.name || '-'}</td>
+      <td className="px-2 py-2 text-sm text-gray-700">
         {editing ? (
-          <input
-            type="text"
-            value={completionNumber}
-            onChange={(e) => setCompletionNumber(e.target.value)}
-            className="border-2 border-gray-400 rounded px-2 py-1 text-sm w-full"
-            autoFocus
-            onBlur={handleSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSubmit()
-              }
-            }}
-          />
+          <div className="flex flex-col gap-1.5 min-w-[10rem]">
+            <input
+              type="text"
+              value={completionName}
+              onChange={(e) => setCompletionName(e.target.value)}
+              placeholder="연수명"
+              className="border-2 border-gray-300 rounded px-2 py-1 text-sm w-full focus:border-blue-400 focus:outline-none"
+              autoFocus
+            />
+            <input
+              type="text"
+              value={completionNumber}
+              onChange={(e) => setCompletionNumber(e.target.value)}
+              placeholder="이수번호 *"
+              className="border-2 border-gray-300 rounded px-2 py-1 text-sm w-full focus:border-blue-400 focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit()
+                if (e.key === 'Escape') handleCancelEdit()
+              }}
+            />
+          </div>
         ) : (
-          participant.completionNumber || '-'
+          <div className="min-w-0 space-y-0.5">
+            {participant.completionName ? (
+              <p className="text-sm text-gray-800 font-medium leading-snug break-words">{participant.completionName}</p>
+            ) : null}
+            <p className={`text-sm leading-snug ${participant.completionNumber ? 'text-gray-600' : 'text-gray-400'}`}>
+              {participant.completionNumber || '-'}
+            </p>
+          </div>
         )}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="px-2 py-2 whitespace-nowrap">
         <span
-          className={`px-2 py-1 text-xs font-medium rounded-full ${
+          className={`inline-block px-2 py-0.5 text-xs font-bold rounded ${
             participant.status === 'completed'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-yellow-100 text-yellow-800'
+              ? 'bg-blue-600 text-white'
+              : 'bg-red-600 text-white'
           }`}
         >
           {participant.status === 'completed' ? '완료' : '미완료'}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-2 py-2 text-xs text-gray-500 truncate hidden lg:table-cell" title={participant.user?.email || ''}>
         {participant.user?.email || '-'}
       </td>
       {isAdmin && (
-        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-          <button
-            onClick={() => setEditing(!editing)}
-            className="text-indigo-600 hover:text-indigo-900"
-          >
-            {editing ? '저장' : '이수번호 수정'}
-          </button>
-          {participant.status === 'completed' && (
-            <button
-              onClick={() => onCancel(participant.id)}
-              className="text-red-600 hover:text-red-900"
-            >
-              이수번호 삭제
-            </button>
-          )}
-          <button
-            onClick={onRemove}
-            className="text-red-700 hover:text-red-950"
-          >
-            대상 제외
-          </button>
+        <td className="px-2 py-2 text-right text-xs font-medium">
+          <div className="flex flex-col items-end gap-1">
+            {editing ? (
+              <>
+                <button onClick={handleSubmit} className="text-blue-600 hover:text-blue-800 font-semibold">저장</button>
+                <button onClick={handleCancelEdit} className="text-gray-500 hover:text-gray-700">취소</button>
+              </>
+            ) : (
+              <button onClick={() => setEditing(true)} className="text-indigo-600 hover:text-indigo-900">
+                수정
+              </button>
+            )}
+            {participant.status === 'completed' && !editing && (
+              <button onClick={() => onCancel(participant.id)} className="text-red-600 hover:text-red-800">
+                삭제
+              </button>
+            )}
+            {!editing && (
+              <button onClick={onRemove} className="text-red-700 hover:text-red-950">
+                제외
+              </button>
+            )}
+          </div>
         </td>
       )}
       {isAdmin && (
-        <td className="px-2 py-4 text-center whitespace-nowrap">
+        <td className="px-1 py-2 text-center">
           <div className="flex flex-col gap-0.5 items-center">
             <button
               onClick={onMoveUp}

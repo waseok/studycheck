@@ -217,11 +217,14 @@ export const cleanupDuplicates = async (req: Request, res: Response) => {
 export const updateCompletionNumber = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { completionNumber } = req.body
+    const { completionNumber, completionName } = req.body as {
+      completionNumber?: string
+      completionName?: string
+    }
     const userId = (req as any).user?.userId
     const isAdmin = (req as any).user?.isAdmin
 
-    if (!completionNumber) {
+    if (!completionNumber?.trim()) {
       return res.status(400).json({ error: '이수번호를 입력해주세요.' })
     }
 
@@ -243,7 +246,9 @@ export const updateCompletionNumber = async (req: Request, res: Response) => {
     const updated = await prisma.trainingParticipant.update({
       where: { id },
       data: {
-        completionNumber,
+        completionNumber: completionNumber.trim(),
+        // 연수명은 선택 입력 — 비어 있으면 null로 저장
+        completionName: completionName?.trim() || null,
         status: 'completed',
         completedAt: new Date()
       },
@@ -298,6 +303,7 @@ export const cancelCompletion = async (req: Request, res: Response) => {
       where: { id },
       data: {
         completionNumber: null,
+        completionName: null,
         status: 'pending',
         completedAt: null
       },

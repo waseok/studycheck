@@ -38,6 +38,8 @@ export interface TrainingParticipant {
   trainingId: string
   userId: string
   completionNumber?: string
+  /** 실제 이수한 연수명 (이수번호와 함께 입력) */
+  completionName?: string
   status: 'pending' | 'completed'
   completedAt?: string
   createdAt: string

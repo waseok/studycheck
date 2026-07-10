@@ -13,10 +13,12 @@ export const getMyTrainings = async (): Promise<TrainingParticipant[]> => {
 
 export const updateCompletionNumber = async (
   id: string,
-  completionNumber: string
+  completionNumber: string,
+  completionName?: string
 ): Promise<TrainingParticipant> => {
   const response = await apiClient.put<TrainingParticipant>(`/participants/${id}/completion-number`, {
-    completionNumber
+    completionNumber,
+    completionName: completionName || undefined
   })
   return response.data
 }

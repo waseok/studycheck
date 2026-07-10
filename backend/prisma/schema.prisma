@@ -71,6 +71,7 @@ model TrainingParticipant {
   trainingId      String    @map("training_id")
   userId          String    @map("user_id")
   completionNumber String?  @map("completion_number") // 이수번호
+  completionName   String?  @map("completion_name")   // 실제 이수한 연수명
   status          String    @default("pending") // pending, completed
   completedAt     DateTime? @map("completed_at")
   absenceReason   String?   @map("absence_reason") // 불참 사유

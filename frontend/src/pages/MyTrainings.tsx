@@ -11,6 +11,7 @@ const MyTrainings = () => {
   const [participants, setParticipants] = useState<TrainingParticipant[]>([])
   const [loading, setLoading] = useState(false)
   const [editingCompletionNumbers, setEditingCompletionNumbers] = useState<Record<string, string>>({})
+  const [editingCompletionNames, setEditingCompletionNames] = useState<Record<string, string>>({})
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -55,11 +56,19 @@ const MyTrainings = () => {
     }
   }
 
-  const handleUpdateCompletionNumber = async (participantId: string, completionNumber: string) => {
+  const handleUpdateCompletionNumber = async (
+    participantId: string,
+    completionNumber: string,
+    completionName?: string
+  ) => {
     try {
-      await updateCompletionNumber(participantId, completionNumber)
-      // 편집 중인 값 제거
+      await updateCompletionNumber(participantId, completionNumber, completionName)
       setEditingCompletionNumbers(prev => {
+        const next = { ...prev }
+        delete next[participantId]
+        return next
+      })
+      setEditingCompletionNames(prev => {
         const next = { ...prev }
         delete next[participantId]
         return next
@@ -77,18 +86,36 @@ const MyTrainings = () => {
     }))
   }
 
+  const handleCompletionNameChange = (participantId: string, value: string) => {
+    setEditingCompletionNames(prev => ({
+      ...prev,
+      [participantId]: value
+    }))
+  }
+
   const handleSubmitCompletionNumber = (participantId: string) => {
-    const value = editingCompletionNumbers[participantId]?.trim()
-    if (value) {
-      handleUpdateCompletionNumber(participantId, value)
+    const numberValue = editingCompletionNumbers[participantId]?.trim()
+      || participants.find(p => p.id === participantId)?.completionNumber?.trim()
+    if (!numberValue) {
+      alert('이수번호를 입력해주세요.')
+      return
     }
+    const nameValue = editingCompletionNames[participantId]?.trim()
+      || participants.find(p => p.id === participantId)?.completionName?.trim()
+      || undefined
+    handleUpdateCompletionNumber(participantId, numberValue, nameValue)
   }
 
   const handleCancelCompletion = async (participantId: string) => {
-    if (!confirm('제출을 취소하시겠습니까? 이수번호가 삭제됩니다.')) return
+    if (!confirm('제출을 취소하시겠습니까? 이수번호와 연수명이 삭제됩니다.')) return
     try {
       await cancelCompletion(participantId)
       setEditingCompletionNumbers(prev => {
+        const next = { ...prev }
+        delete next[participantId]
+        return next
+      })
+      setEditingCompletionNames(prev => {
         const next = { ...prev }
         delete next[participantId]
         return next
@@ -124,16 +151,16 @@ const MyTrainings = () => {
               <div
                 key={participant.id}
                 ref={el => { cardRefs.current[participant.id] = el }}
-                className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden transition-all duration-500 ${participant.status !== 'completed' ? 'border-l-yellow-400' : 'border-l-green-400'} ${highlightedId === participant.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+                className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden transition-all duration-500 ${participant.status !== 'completed' ? 'border-l-red-500' : 'border-l-blue-500'} ${highlightedId === participant.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
               >
                 {/* 헤더 */}
                 <div className="px-6 pt-5 pb-4">
                   <div className="flex justify-between items-start gap-3">
                     <h2 className="text-lg font-bold text-gray-900 leading-snug">{training.name}</h2>
-                    <span className={`shrink-0 px-3 py-1 text-xs font-semibold rounded-full ${
-                      participant.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    <span className={`shrink-0 px-3 py-1 text-xs font-bold rounded ${
+                      participant.status === 'completed' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
                     }`}>
-                      {participant.status === 'completed' ? '✅ 완료' : '⏳ 미완료'}
+                      {participant.status === 'completed' ? '완료' : '미완료'}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
@@ -211,32 +238,43 @@ const MyTrainings = () => {
                   ) : (
                     <div>
                       <label className="block text-sm font-semibold text-gray-600 mb-2">
-                        {participant.status === 'completed' ? '이수번호 수정' : '이수번호 입력'}
+                        {participant.status === 'completed' ? '이수 정보 수정' : '이수 정보 입력'}
                       </label>
-                      <div className="flex gap-2">
+                      <div className="space-y-2">
                         <input
                           type="text"
-                          placeholder="이수번호를 입력하세요"
-                          value={editingCompletionNumbers[participant.id] ?? (participant.completionNumber || '')}
-                          onChange={(e) => handleCompletionNumberChange(participant.id, e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitCompletionNumber(participant.id) }}
-                          className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400 text-sm"
+                          placeholder="연수명 (이수증에 적힌 연수명)"
+                          value={editingCompletionNames[participant.id] ?? (participant.completionName || '')}
+                          onChange={(e) => handleCompletionNameChange(participant.id, e.target.value)}
+                          className="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400 text-sm"
                         />
-                        <button
-                          onClick={() => handleSubmitCompletionNumber(participant.id)}
-                          disabled={!editingCompletionNumbers[participant.id]?.trim() && !participant.completionNumber}
-                          className="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
-                        >
-                          {participant.status === 'completed' ? '수정' : '제출'}
-                        </button>
-                        {participant.status === 'completed' && (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="이수번호 *"
+                            value={editingCompletionNumbers[participant.id] ?? (participant.completionNumber || '')}
+                            onChange={(e) => handleCompletionNumberChange(participant.id, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitCompletionNumber(participant.id) }}
+                            className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-400 text-sm"
+                          />
                           <button
-                            onClick={() => handleCancelCompletion(participant.id)}
-                            className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium"
+                            onClick={() => handleSubmitCompletionNumber(participant.id)}
+                            disabled={
+                              !(editingCompletionNumbers[participant.id]?.trim() || participant.completionNumber)
+                            }
+                            className="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
                           >
-                            취소
+                            {participant.status === 'completed' ? '수정' : '제출'}
                           </button>
-                        )}
+                          {participant.status === 'completed' && (
+                            <button
+                              onClick={() => handleCancelCompletion(participant.id)}
+                              className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium"
+                            >
+                              취소
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {participant.status === 'completed' && participant.completedAt && (
                         <p className="text-xs text-gray-400 mt-1.5">
