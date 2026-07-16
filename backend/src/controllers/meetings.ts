@@ -38,6 +38,43 @@ export const getMeetings = async (_req: Request, res: Response) => {
   }
 }
 
+// 내가 참가한 회의 목록 (내 연수 페이지용)
+export const getMyMeetings = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId
+    if (!userId) return res.status(401).json({ error: '인증이 필요합니다.' })
+
+    const meetings = await prisma.meeting.findMany({
+      where: {
+        participants: { some: { userId } }
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        signatures: {
+          where: { userId },
+          select: { id: true, signedAt: true }
+        }
+      }
+    })
+
+    res.json(
+      meetings.map((m) => ({
+        id: m.id,
+        name: m.name,
+        agenda: m.agenda,
+        date: m.date,
+        location: m.location,
+        isCompleted: m.isCompleted,
+        hasSigned: m.signatures.length > 0,
+        signedAt: m.signatures[0]?.signedAt ?? null
+      }))
+    )
+  } catch (error) {
+    console.error('getMyMeetings error:', error)
+    res.status(500).json({ error: '내 회의 목록 조회 중 오류가 발생했습니다.' })
+  }
+}
+
 // 회의 상세 조회 (참가자 + 서명 포함)
 export const getMeeting = async (req: Request, res: Response) => {
   try {

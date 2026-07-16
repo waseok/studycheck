@@ -14,12 +14,36 @@ const applyRoleMapping = (role?: AppRole) => {
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }]
     })
     res.json(users)
   } catch (error) {
     console.error('Get users error:', error)
     res.status(500).json({ error: '교직원 목록 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+// 교직원 목록 수동 정렬 저장
+export const reorderUsers = async (req: Request, res: Response) => {
+  try {
+    const { orderedIds } = req.body as { orderedIds?: string[] }
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ error: '정렬할 교직원 ID 목록이 필요합니다.' })
+    }
+
+    await prisma.$transaction(
+      orderedIds.map((id, index) =>
+        prisma.user.update({
+          where: { id },
+          data: { sortOrder: index }
+        })
+      )
+    )
+
+    res.json({ success: true, message: '교직원 순서가 저장되었습니다.' })
+  } catch (error) {
+    console.error('Reorder users error:', error)
+    res.status(500).json({ error: '교직원 순서 저장 중 오류가 발생했습니다.' })
   }
 }
 

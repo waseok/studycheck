@@ -6,6 +6,10 @@ export const getUsers = async (): Promise<User[]> => {
   return response.data
 }
 
+export const reorderUsers = async (orderedIds: string[]): Promise<void> => {
+  await apiClient.put('/users/reorder', { orderedIds })
+}
+
 export const createUser = async (data: {
   name: string
   email: string

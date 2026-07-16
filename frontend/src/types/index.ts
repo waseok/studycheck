@@ -8,6 +8,7 @@ export interface User {
   class?: string // 반
   role?: AppRole
   isAdmin: boolean
+  sortOrder?: number
   createdAt: string
   updatedAt: string
 }
