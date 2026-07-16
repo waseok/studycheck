@@ -1,15 +1,48 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
-import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers } from '../api/users'
+import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers, reorderUsers } from '../api/users'
 import { getRoleRequests, approveRoleRequest, rejectRoleRequest } from '../api/roleRequests'
 import { cleanupDuplicates } from '../api/participants'
 import { isAdmin } from '../api/auth'
 import { User, RoleRequest } from '../types'
 import { getGroups, createGroup, updateGroup, deleteGroup, addGroupMembers, removeGroupMember, StaffGroup } from '../api/groups'
 
+/** sortOrder가 모두 0일 때 적용하는 기본 직위·학년 정렬 */
+const applyDefaultUserSort = (users: User[]): User[] => {
+  return [...users].sort((a, b) => {
+    const getOrder = (u: User): number => {
+      const p = (u.position ?? '').toLowerCase()
+      const t = u.userType
+      const hasGrade = !!u.grade && u.grade.trim() !== ''
+      if (t === '직원') return 6
+      if (t === '공무직' || t === '교육공무직') return 7
+      if (p.includes('교장')) return 0
+      if (p.includes('교감')) return 1
+      if ((p.includes('담임') || p.includes('학급')) && hasGrade) return 2
+      if (p.includes('전담') || p.includes('교과')) return 3
+      if (t === '교원' || t === '기간제교사') return 4
+      if (p.includes('유치') || t.includes('유치')) return 5
+      return 8
+    }
+    const orderA = getOrder(a)
+    const orderB = getOrder(b)
+    if (orderA !== orderB) return orderA - orderB
+    const gradeA = parseInt(a.grade ?? '99')
+    const gradeB = parseInt(b.grade ?? '99')
+    if (gradeA !== gradeB) return gradeA - gradeB
+    const classA = parseInt(a.class ?? '99')
+    const classB = parseInt(b.class ?? '99')
+    if (classA !== classB) return classA - classB
+    return a.name.localeCompare(b.name, 'ko')
+  })
+}
+
 const Users = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users')
   const [users, setUsers] = useState<User[]>([])
+  const [displayUsers, setDisplayUsers] = useState<User[]>([])
+  const [draggingUserId, setDraggingUserId] = useState<string | null>(null)
+  const [reorderSaving, setReorderSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
@@ -201,10 +234,46 @@ const Users = () => {
     try {
       const data = await getUsers()
       setUsers(data)
+      const allDefaultOrder = data.length > 0 && data.every((u) => (u.sortOrder ?? 0) === 0)
+      setDisplayUsers(allDefaultOrder ? applyDefaultUserSort(data) : data)
     } catch (error) {
       console.error('교직원 목록 조회 오류:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDragStart = (userId: string) => {
+    if (!isAdmin()) return
+    setDraggingUserId(userId)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (targetUserId: string) => {
+    if (!isAdmin() || !draggingUserId || draggingUserId === targetUserId) return
+
+    const fromIdx = displayUsers.findIndex((u) => u.id === draggingUserId)
+    const toIdx = displayUsers.findIndex((u) => u.id === targetUserId)
+    if (fromIdx < 0 || toIdx < 0) return
+
+    const next = [...displayUsers]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    setDisplayUsers(next)
+    setDraggingUserId(null)
+
+    setReorderSaving(true)
+    try {
+      await reorderUsers(next.map((u) => u.id))
+      setUsers(next)
+    } catch (error: any) {
+      alert(error.response?.data?.error || '순서 저장에 실패했습니다.')
+      await fetchUsers()
+    } finally {
+      setReorderSaving(false)
     }
   }
 
@@ -238,10 +307,10 @@ const Users = () => {
   }
 
   const handleSelectAll = () => {
-    if (selectedIds.size === users.length) {
+    if (selectedIds.size === displayUsers.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(users.map(u => u.id)))
+      setSelectedIds(new Set(displayUsers.map(u => u.id)))
     }
   }
 
@@ -442,35 +511,6 @@ const Users = () => {
     !groupMemberIds.has(u.id) &&
     (u.name.includes(groupMemberSearch) || u.userType.includes(groupMemberSearch) || (u.position || '').includes(groupMemberSearch))
   )
-
-  const sortedUsers = [...users].sort((a, b) => {
-    const getOrder = (u: typeof users[0]): number => {
-      const p = (u.position ?? '').toLowerCase()
-      const t = u.userType
-      const hasGrade = !!u.grade && u.grade.trim() !== ''
-      // userType 먼저 확정 — 직위에 '전담' 등이 있어도 공무직은 아래로
-      if (t === '직원') return 6
-      if (t === '공무직' || t === '교육공무직') return 7
-      // 교원/기간제 직위 체계
-      if (p.includes('교장')) return 0
-      if (p.includes('교감')) return 1
-      if ((p.includes('담임') || p.includes('학급')) && hasGrade) return 2
-      if (p.includes('전담') || p.includes('교과')) return 3
-      if (t === '교원' || t === '기간제교사') return 4
-      if (p.includes('유치') || t.includes('유치')) return 5
-      return 8
-    }
-    const orderA = getOrder(a)
-    const orderB = getOrder(b)
-    if (orderA !== orderB) return orderA - orderB
-    const gradeA = parseInt(a.grade ?? '99')
-    const gradeB = parseInt(b.grade ?? '99')
-    if (gradeA !== gradeB) return gradeA - gradeB
-    const classA = parseInt(a.class ?? '99')
-    const classB = parseInt(b.class ?? '99')
-    if (classA !== classB) return classA - classB
-    return a.name.localeCompare(b.name, 'ko')
-  })
 
   return (
     <Layout>
@@ -810,33 +850,53 @@ const Users = () => {
           <div className="text-center py-8">로딩 중...</div>
         ) : activeTab === 'users' && (
           <div className="bg-white shadow-xl rounded-2xl overflow-hidden border-4 border-blue-200">
+            {isAdmin() && (
+              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex items-center justify-between gap-2">
+                <span>⋮⋮ 행을 드래그하여 교직원 순서를 변경할 수 있습니다.</span>
+                {reorderSaving && <span className="text-xs text-blue-600">저장 중...</span>}
+              </div>
+            )}
             <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full table-fixed divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left">
+                  {isAdmin() && (
+                    <th className="w-8 px-1 py-2 text-center text-xs font-medium text-gray-400" title="드래그">⋮⋮</th>
+                  )}
+                  <th className="w-8 px-2 py-2 text-left">
                     <input
                       type="checkbox"
-                      checked={sortedUsers.length > 0 && selectedIds.size === sortedUsers.length}
+                      checked={displayUsers.length > 0 && selectedIds.size === displayUsers.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4 cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직위</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">학년</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">반</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">권한</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">이름</th>
+                  <th className="w-36 px-2 py-2 text-left text-xs font-medium text-gray-500">이메일</th>
+                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">유형</th>
+                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
+                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">학년</th>
+                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">반</th>
+                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">권한</th>
+                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">등록일</th>
+                  <th className="w-28 px-2 py-2 text-right text-xs font-medium text-gray-500">작업</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortedUsers.map((user) => (
-                  <tr key={user.id} className={selectedIds.has(user.id) ? 'bg-red-50' : ''}>
-                    <td className="px-4 py-4">
+                {displayUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    draggable={isAdmin()}
+                    onDragStart={() => handleDragStart(user.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={() => handleDrop(user.id)}
+                    onDragEnd={() => setDraggingUserId(null)}
+                    className={`${selectedIds.has(user.id) ? 'bg-red-50' : ''} ${draggingUserId === user.id ? 'opacity-50' : ''} ${isAdmin() ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  >
+                    {isAdmin() && (
+                      <td className="px-1 py-2 text-center text-gray-300 text-xs select-none">⋮⋮</td>
+                    )}
+                    <td className="px-2 py-2">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(user.id)}
@@ -844,19 +904,19 @@ const Users = () => {
                         className="w-4 h-4 cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.userType}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.position || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.grade || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.class || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{
-                      deriveRole(user) === 'SUPER_ADMIN' ? '최고 관리자' : deriveRole(user) === 'TRAINING_ADMIN' ? '연수 관리자' : '일반 사용자'
+                    <td className="px-2 py-2 text-sm font-medium text-gray-900 truncate" title={user.name}>{user.name}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 truncate" title={user.email}>{user.email}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.userType}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.position || '-'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500">{user.grade || '-'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500">{user.class || '-'}</td>
+                    <td className="px-2 py-2 text-xs text-gray-500 truncate">{
+                      deriveRole(user) === 'SUPER_ADMIN' ? '최고관리자' : deriveRole(user) === 'TRAINING_ADMIN' ? '연수관리자' : '일반'
                     }</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900">수정</button>
-                      <button onClick={() => handleResetPin(user.id, user.name)} className="text-yellow-600 hover:text-yellow-900">PIN 초기화</button>
+                    <td className="px-2 py-2 text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
+                    <td className="px-2 py-2 text-right text-xs font-medium">
+                      <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900 mr-1">수정</button>
+                      <button onClick={() => handleResetPin(user.id, user.name)} className="text-yellow-600 hover:text-yellow-900 mr-1">PIN</button>
                       <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">삭제</button>
                     </td>
                   </tr>

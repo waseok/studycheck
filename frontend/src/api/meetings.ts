@@ -56,6 +56,22 @@ export const getMeetings = async (): Promise<Meeting[]> => {
   return response.data
 }
 
+export interface MyMeeting {
+  id: string
+  name: string
+  agenda: string | null
+  date: string | null
+  location: string | null
+  isCompleted: boolean
+  hasSigned: boolean
+  signedAt: string | null
+}
+
+export const getMyMeetings = async (): Promise<MyMeeting[]> => {
+  const response = await apiClient.get<MyMeeting[]>('/meetings/my')
+  return response.data
+}
+
 export const getMeeting = async (id: string): Promise<MeetingDetail> => {
   const response = await apiClient.get<MeetingDetail>(`/meetings/${id}`)
   return response.data

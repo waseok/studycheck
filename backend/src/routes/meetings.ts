@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 import {
-  getMeetings, getMeeting, createMeeting, updateMeeting,
+  getMeetings, getMyMeetings, getMeeting, createMeeting, updateMeeting,
   deleteMeeting, completeMeeting, addParticipants, addExternalParticipant, updateParticipant, removeParticipant, updateAbsenceReason,
   saveMeetingSignature, deleteMeetingSignature, createMeetingSignatureLink,
   getMeetingByAccessToken, saveMeetingSignatureByAccessToken
@@ -10,6 +10,7 @@ import {
 const router = Router()
 
 router.get('/', authMiddleware, getMeetings)
+router.get('/my', authMiddleware, getMyMeetings)
 router.get('/:id', authMiddleware, getMeeting)
 router.post('/', authMiddleware, trainingAdminMiddleware, createMeeting)
 router.put('/:id', authMiddleware, trainingAdminMiddleware, updateMeeting)

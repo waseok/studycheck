@@ -23,6 +23,7 @@ model User {
   pinHash   String?  @map("pin_hash") // 4자리 PIN 해시
   mustSetPin Boolean @default(true) @map("must_set_pin") // PIN 설정 필요 여부
   savedSignature String? @map("saved_signature") // 저장된 서명 (base64 PNG)
+  sortOrder     Int      @default(0) @map("sort_order") // 교직원 목록 수동 정렬 순서
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

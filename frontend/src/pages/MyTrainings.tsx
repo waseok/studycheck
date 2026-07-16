@@ -1,14 +1,51 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { getMyTrainings, updateCompletionNumber, cancelCompletion } from '../api/participants'
+import { getMyMeetings, MyMeeting } from '../api/meetings'
 import { TrainingParticipant } from '../types'
+
+/** 내 연수 정렬 그룹: 1=미이수 일반연수, 2=완료 일반연수, 3=연수등록부 */
+const getTrainingSortGroup = (participant: TrainingParticipant): number => {
+  if (participant.training?.registrationBook) return 3
+  if (participant.status !== 'completed') return 1
+  return 2
+}
+
+const sortTrainingsForDisplay = (items: TrainingParticipant[]): TrainingParticipant[] => {
+  return [...items].sort((a, b) => {
+    const groupA = getTrainingSortGroup(a)
+    const groupB = getTrainingSortGroup(b)
+    if (groupA !== groupB) return groupA - groupB
+
+    // 연수등록부 그룹 내에서는 미서명(미완료) 우선
+    if (groupA === 3) {
+      if (a.status !== 'completed' && b.status === 'completed') return -1
+      if (a.status === 'completed' && b.status !== 'completed') return 1
+    }
+
+    const deadlineA = a.training?.deadline ? new Date(a.training.deadline).getTime() : Number.MAX_SAFE_INTEGER
+    const deadlineB = b.training?.deadline ? new Date(b.training.deadline).getTime() : Number.MAX_SAFE_INTEGER
+    if (deadlineA !== deadlineB) return deadlineA - deadlineB
+
+    return (a.training?.name || '').localeCompare(b.training?.name || '', 'ko')
+  })
+}
+
+const sortMeetingsForDisplay = (items: MyMeeting[]): MyMeeting[] => {
+  return [...items].sort((a, b) => {
+    if (!a.hasSigned && b.hasSigned) return -1
+    if (a.hasSigned && !b.hasSigned) return 1
+    return a.name.localeCompare(b.name, 'ko')
+  })
+}
 
 const MyTrainings = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const targetName = searchParams.get('name')
   const [participants, setParticipants] = useState<TrainingParticipant[]>([])
+  const [myMeetings, setMyMeetings] = useState<MyMeeting[]>([])
   const [loading, setLoading] = useState(false)
   const [editingCompletionNumbers, setEditingCompletionNumbers] = useState<Record<string, string>>({})
   const [editingCompletionNames, setEditingCompletionNames] = useState<Record<string, string>>({})
@@ -29,14 +66,13 @@ const MyTrainings = () => {
   const fetchTrainings = async () => {
     setLoading(true)
     try {
-      const data = await getMyTrainings()
-      // 미완료 연수를 위로 정렬
-      const sorted = [...data].sort((a, b) => {
-        if (a.status === 'completed' && b.status !== 'completed') return 1
-        if (a.status !== 'completed' && b.status === 'completed') return -1
-        return 0
-      })
+      const [trainingData, meetingData] = await Promise.all([
+        getMyTrainings(),
+        getMyMeetings()
+      ])
+      const sorted = sortTrainingsForDisplay(trainingData)
       setParticipants(sorted)
+      setMyMeetings(sortMeetingsForDisplay(meetingData))
       // name 파라미터와 일치하는 연수 하이라이트
       if (targetName) {
         const matched = sorted.find(p => p.training?.name === targetName)
@@ -126,6 +162,9 @@ const MyTrainings = () => {
     }
   }
 
+  const sortedParticipants = useMemo(() => sortTrainingsForDisplay(participants), [participants])
+  const sortedMeetings = useMemo(() => sortMeetingsForDisplay(myMeetings), [myMeetings])
+
   if (loading) {
     return (
       <Layout>
@@ -140,7 +179,7 @@ const MyTrainings = () => {
         <h1 className="text-4xl font-bold text-blue-800 mb-6">📚 내 연수</h1>
 
         <div className="space-y-4">
-          {participants.map((participant) => {
+          {sortedParticipants.map((participant) => {
             const training = participant.training
             if (!training) return null
 
@@ -287,9 +326,65 @@ const MyTrainings = () => {
               </div>
             )
           })}
+
+          {/* 회의등록부 — 맨 아래 */}
+          {sortedMeetings.length > 0 && (
+            <>
+              {sortedParticipants.length > 0 && (
+                <div className="pt-2 pb-1">
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">📝 회의등록부</h2>
+                </div>
+              )}
+              {sortedMeetings.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden ${!meeting.hasSigned ? 'border-l-red-500' : 'border-l-blue-500'}`}
+                >
+                  <div className="px-6 py-5">
+                    <div className="flex justify-between items-start gap-3 mb-2">
+                      <div>
+                        <p className="text-xs font-semibold text-green-700 mb-1">회의등록부</p>
+                        <h2 className="text-lg font-bold text-gray-900 leading-snug">{meeting.name}</h2>
+                      </div>
+                      <span className={`shrink-0 px-3 py-1 text-xs font-bold rounded ${
+                        meeting.hasSigned ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+                      }`}>
+                        {meeting.hasSigned ? '서명완료' : '미서명'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-500 space-y-0.5 mb-4">
+                      {meeting.date && <p>📅 {meeting.date}</p>}
+                      {meeting.location && <p>📍 {meeting.location}</p>}
+                    </div>
+                    {meeting.hasSigned ? (
+                      <div className="flex items-center gap-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
+                        <span>✅</span>
+                        <span className="font-medium">회의등록부 서명 완료</span>
+                        {meeting.signedAt && (
+                          <span className="text-xs text-gray-400 ml-auto">
+                            {new Date(meeting.signedAt).toLocaleDateString('ko-KR')}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                        <span className="text-green-800 text-sm font-medium">회의등록부에 서명이 필요합니다</span>
+                        <button
+                          onClick={() => navigate(`/dashboard/meetings/${meeting.id}`)}
+                          className="shrink-0 px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+                        >
+                          서명하러 가기
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
-        {participants.length === 0 && (
+        {sortedParticipants.length === 0 && sortedMeetings.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             참여 중인 연수가 없습니다.
           </div>
