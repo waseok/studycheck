@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { Fragment, useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { getMyTrainings, updateCompletionNumber, cancelCompletion } from '../api/participants'
@@ -51,6 +51,8 @@ const MyTrainings = () => {
   const [editingCompletionNames, setEditingCompletionNames] = useState<Record<string, string>>({})
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const [registrationBooksOpen, setRegistrationBooksOpen] = useState(false)
+  const [meetingsOpen, setMeetingsOpen] = useState(false)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const isDescLong = (desc: string | null | undefined) =>
@@ -77,6 +79,7 @@ const MyTrainings = () => {
       if (targetName) {
         const matched = sorted.find(p => p.training?.name === targetName)
         if (matched) {
+          if (matched.training?.registrationBook) setRegistrationBooksOpen(true)
           setHighlightedId(matched.id)
           setTimeout(() => {
             cardRefs.current[matched.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -164,6 +167,12 @@ const MyTrainings = () => {
 
   const sortedParticipants = useMemo(() => sortTrainingsForDisplay(participants), [participants])
   const sortedMeetings = useMemo(() => sortMeetingsForDisplay(myMeetings), [myMeetings])
+  const firstRegistrationBookIndex = sortedParticipants.findIndex((p) => !!p.training?.registrationBook)
+  const registrationBookCount = sortedParticipants.filter((p) => !!p.training?.registrationBook).length
+  const unsignedRegistrationBookCount = sortedParticipants.filter(
+    (p) => !!p.training?.registrationBook && p.status !== 'completed'
+  ).length
+  const unsignedMeetingCount = sortedMeetings.filter((m) => !m.hasSigned).length
 
   if (loading) {
     return (
@@ -179,19 +188,42 @@ const MyTrainings = () => {
         <h1 className="text-4xl font-bold text-blue-800 mb-6">📚 내 연수</h1>
 
         <div className="space-y-4">
-          {sortedParticipants.map((participant) => {
+          {sortedParticipants.map((participant, index) => {
             const training = participant.training
             if (!training) return null
 
             const hasDetail = training.description || training.method || training.methodLink || training.manager
             const descLong = isDescLong(training.description)
             const descExpanded = expandedDescriptions[participant.id] ?? false
+            const isRegistrationBook = !!training.registrationBook
+            const isFirstRegistrationBook = index === firstRegistrationBookIndex
             return (
-              <div
-                key={participant.id}
-                ref={el => { cardRefs.current[participant.id] = el }}
-                className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden transition-all duration-500 ${participant.status !== 'completed' ? 'border-l-red-500' : 'border-l-blue-500'} ${highlightedId === participant.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
-              >
+              <Fragment key={participant.id}>
+                {isFirstRegistrationBook && (
+                  <button
+                    type="button"
+                    onClick={() => setRegistrationBooksOpen((open) => !open)}
+                    className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-white border-2 border-purple-200 rounded-xl shadow-sm hover:bg-purple-50 text-left"
+                    aria-expanded={registrationBooksOpen}
+                  >
+                    <span className="font-bold text-purple-900">
+                      ✍️ 연수등록부 ({registrationBookCount}개)
+                      {unsignedRegistrationBookCount > 0 && (
+                        <span className="ml-2 text-xs font-bold text-red-600">
+                          미서명 {unsignedRegistrationBookCount}개
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-sm font-semibold text-purple-600">
+                      {registrationBooksOpen ? '▲ 접어두기' : '▼ 펼쳐보기'}
+                    </span>
+                  </button>
+                )}
+                {(!isRegistrationBook || registrationBooksOpen) && (
+                  <div
+                    ref={el => { cardRefs.current[participant.id] = el }}
+                    className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden transition-all duration-500 ${participant.status !== 'completed' ? 'border-l-red-500' : 'border-l-blue-500'} ${highlightedId === participant.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+                  >
                 {/* 헤더 */}
                 <div className="px-6 pt-5 pb-4">
                   <div className="flex justify-between items-start gap-3">
@@ -323,19 +355,34 @@ const MyTrainings = () => {
                     </div>
                   )}
                 </div>
-              </div>
+                  </div>
+                )}
+              </Fragment>
             )
           })}
 
           {/* 회의등록부 — 맨 아래 */}
           {sortedMeetings.length > 0 && (
-            <>
-              {sortedParticipants.length > 0 && (
-                <div className="pt-2 pb-1">
-                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">📝 회의등록부</h2>
-                </div>
-              )}
-              {sortedMeetings.map((meeting) => (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setMeetingsOpen((open) => !open)}
+                className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-white border-2 border-green-200 rounded-xl shadow-sm hover:bg-green-50 text-left"
+                aria-expanded={meetingsOpen}
+              >
+                <span className="font-bold text-green-900">
+                  📝 회의등록부 ({sortedMeetings.length}개)
+                  {unsignedMeetingCount > 0 && (
+                    <span className="ml-2 text-xs font-bold text-red-600">
+                      미서명 {unsignedMeetingCount}개
+                    </span>
+                  )}
+                </span>
+                <span className="text-sm font-semibold text-green-700">
+                  {meetingsOpen ? '▲ 접어두기' : '▼ 펼쳐보기'}
+                </span>
+              </button>
+              {meetingsOpen && sortedMeetings.map((meeting) => (
                 <div
                   key={meeting.id}
                   className={`bg-white rounded-2xl shadow border-l-4 overflow-hidden ${!meeting.hasSigned ? 'border-l-red-500' : 'border-l-blue-500'}`}
@@ -380,7 +427,7 @@ const MyTrainings = () => {
                   </div>
                 </div>
               ))}
-            </>
+            </div>
           )}
         </div>
 
