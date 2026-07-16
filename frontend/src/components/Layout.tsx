@@ -31,7 +31,7 @@ const Layout = ({ children }: LayoutProps) => {
       if (updatedRole) setRole(updatedRole)
     }
     sync()
-    const interval = setInterval(sync, 20000)
+    const interval = setInterval(sync, 43200000) // 12시간
     return () => clearInterval(interval)
   }, [])
 
@@ -52,7 +52,7 @@ const Layout = ({ children }: LayoutProps) => {
     }
 
     fetchPending()
-    const interval = setInterval(fetchPending, 20000)
+    const interval = setInterval(fetchPending, 43200000) // 12시간
     return () => clearInterval(interval)
   }, [role])
 
