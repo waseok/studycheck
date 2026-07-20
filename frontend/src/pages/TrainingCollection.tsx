@@ -471,12 +471,12 @@ const TrainingCollection = () => {
             <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">#</th>
-                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
-                  <th className="w-12 px-2 py-2 text-left text-xs font-medium text-gray-500">학년</th>
-                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">반</th>
-                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">성함</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 relative min-w-[11rem]">
+                  <th className="w-8 px-1 py-2 text-left text-xs font-medium text-gray-500">#</th>
+                  <th className="w-11 px-1 py-2 text-left text-xs font-medium text-gray-500">직위</th>
+                  <th className="w-7 px-1 py-2 text-center text-xs font-medium text-gray-500">학년</th>
+                  <th className="w-7 px-1 py-2 text-center text-xs font-medium text-gray-500">반</th>
+                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">성함</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 relative min-w-[14rem] w-[34%]">
                     <div className="flex items-center gap-1">
                       연수명 / 이수번호
                       <button
@@ -498,13 +498,13 @@ const TrainingCollection = () => {
                       </div>
                     )}
                   </th>
-                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">상태</th>
-                  <th className="w-36 px-2 py-2 text-left text-xs font-medium text-gray-500 hidden lg:table-cell">이메일</th>
+                  <th className="w-14 px-1 py-2 text-left text-xs font-medium text-gray-500">상태</th>
+                  <th className="w-24 px-1 py-2 text-left text-xs font-medium text-gray-500 hidden lg:table-cell">이메일</th>
                   {adminUser && (
-                    <th className="w-28 px-2 py-2 text-right text-xs font-medium text-gray-500">수정</th>
+                    <th className="w-24 px-1 py-2 text-right text-xs font-medium text-gray-500">수정</th>
                   )}
                   {adminUser && (
-                    <th className="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500">순서</th>
+                    <th className="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500">순서</th>
                   )}
                 </tr>
               </thead>
@@ -585,14 +585,16 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
 
   return (
     <tr className="align-top">
-      <td className="px-2 py-2 text-sm font-medium text-gray-900">{index + 1}</td>
-      <td className="px-2 py-2 text-sm text-gray-500 truncate">{participant.user?.position || '-'}</td>
-      <td className="px-2 py-2 text-sm text-gray-500">{participant.user?.grade || '-'}</td>
-      <td className="px-2 py-2 text-sm text-gray-500">{participant.user?.class || '-'}</td>
+      <td className="px-1 py-2 text-xs font-medium text-gray-900">{index + 1}</td>
+      <td className="px-1 py-2 text-xs text-gray-500 truncate max-w-[2.75rem]" title={participant.user?.position || ''}>
+        {participant.user?.position || '-'}
+      </td>
+      <td className="px-1 py-2 text-xs text-gray-500 text-center">{participant.user?.grade || '-'}</td>
+      <td className="px-1 py-2 text-xs text-gray-500 text-center">{participant.user?.class || '-'}</td>
       <td className="px-2 py-2 text-sm font-medium text-gray-900 truncate">{participant.user?.name || '-'}</td>
       <td className="px-2 py-2 text-sm text-gray-700">
         {editing ? (
-          <div className="flex flex-col gap-1.5 min-w-[10rem]">
+          <div className="flex flex-col gap-1.5">
             <input
               type="text"
               value={completionName}
@@ -635,7 +637,7 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
           {participant.status === 'completed' ? '완료' : '미완료'}
         </span>
       </td>
-      <td className="px-2 py-2 text-xs text-gray-500 truncate hidden lg:table-cell" title={participant.user?.email || ''}>
+      <td className="px-1 py-2 text-xs text-gray-500 truncate hidden lg:table-cell max-w-[6rem]" title={participant.user?.email || ''}>
         {participant.user?.email || '-'}
       </td>
       {isAdmin && (
