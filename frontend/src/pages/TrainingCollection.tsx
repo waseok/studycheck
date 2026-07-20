@@ -476,7 +476,7 @@ const TrainingCollection = () => {
                   <th className="w-7 px-1 py-2 text-center text-xs font-medium text-gray-500">학년</th>
                   <th className="w-7 px-1 py-2 text-center text-xs font-medium text-gray-500">반</th>
                   <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">성함</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 relative min-w-[14rem] w-[34%]">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 relative min-w-[16rem] w-[42%]">
                     <div className="flex items-center gap-1">
                       연수명 / 이수번호
                       <button
@@ -499,7 +499,7 @@ const TrainingCollection = () => {
                     )}
                   </th>
                   <th className="w-14 px-1 py-2 text-left text-xs font-medium text-gray-500">상태</th>
-                  <th className="w-24 px-1 py-2 text-left text-xs font-medium text-gray-500 hidden lg:table-cell">이메일</th>
+                  <th className="w-16 px-1 py-2 text-left text-xs font-medium text-gray-500 hidden lg:table-cell">이메일</th>
                   {adminUser && (
                     <th className="w-24 px-1 py-2 text-right text-xs font-medium text-gray-500">수정</th>
                   )}
@@ -592,7 +592,7 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
       <td className="px-1 py-2 text-xs text-gray-500 text-center">{participant.user?.grade || '-'}</td>
       <td className="px-1 py-2 text-xs text-gray-500 text-center">{participant.user?.class || '-'}</td>
       <td className="px-2 py-2 text-sm font-medium text-gray-900 truncate">{participant.user?.name || '-'}</td>
-      <td className="px-2 py-2 text-sm text-gray-700">
+      <td className="px-2 py-2 text-[13px] text-gray-700">
         {editing ? (
           <div className="flex flex-col gap-1.5">
             <input
@@ -600,7 +600,7 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
               value={completionName}
               onChange={(e) => setCompletionName(e.target.value)}
               placeholder="연수명"
-              className="border-2 border-gray-300 rounded px-2 py-1 text-sm w-full focus:border-blue-400 focus:outline-none"
+              className="border-2 border-gray-300 rounded px-2 py-1 text-[13px] w-full focus:border-blue-400 focus:outline-none"
               autoFocus
             />
             <input
@@ -608,7 +608,7 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
               value={completionNumber}
               onChange={(e) => setCompletionNumber(e.target.value)}
               placeholder="이수번호 *"
-              className="border-2 border-gray-300 rounded px-2 py-1 text-sm w-full focus:border-blue-400 focus:outline-none"
+              className="border-2 border-gray-300 rounded px-2 py-1 text-[13px] w-full focus:border-blue-400 focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSubmit()
                 if (e.key === 'Escape') handleCancelEdit()
@@ -618,9 +618,9 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
         ) : (
           <div className="min-w-0 space-y-0.5">
             {participant.completionName ? (
-              <p className="text-sm text-gray-800 font-medium leading-snug break-words">{participant.completionName}</p>
+              <p className="text-[13px] text-gray-800 font-medium leading-snug break-words">{participant.completionName}</p>
             ) : null}
-            <p className={`text-sm leading-snug ${participant.completionNumber ? 'text-gray-600' : 'text-gray-400'}`}>
+            <p className={`text-[13px] leading-snug ${participant.completionNumber ? 'text-gray-600' : 'text-gray-400'}`}>
               {participant.completionNumber || '-'}
             </p>
           </div>
@@ -637,7 +637,7 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
           {participant.status === 'completed' ? '완료' : '미완료'}
         </span>
       </td>
-      <td className="px-1 py-2 text-xs text-gray-500 truncate hidden lg:table-cell max-w-[6rem]" title={participant.user?.email || ''}>
+      <td className="px-1 py-2 text-[11px] text-gray-500 truncate hidden lg:table-cell max-w-[4rem]" title={participant.user?.email || ''}>
         {participant.user?.email || '-'}
       </td>
       {isAdmin && (
