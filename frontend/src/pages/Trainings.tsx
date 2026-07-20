@@ -82,8 +82,27 @@ const Trainings = () => {
     }
   }
 
-  const activeTrainings = trainings.filter(t => !t.isCompleted)
-  const completedTrainings = trainings.filter(t => t.isCompleted)
+  const activeTrainings = sortTrainingsForManagement(trainings.filter(t => !t.isCompleted))
+  const completedTrainings = sortTrainingsForManagement(trainings.filter(t => t.isCompleted))
+
+  /** 연수등록부 → 이수번호 연수 순으로 묶고, 각 그룹 안에서는 생성일 최신순 유지 */
+  function sortTrainingsForManagement(list: Training[]): Training[] {
+    return [...list].sort((a, b) => {
+      const aIsRegBook = !!a.registrationBook
+      const bIsRegBook = !!b.registrationBook
+      if (aIsRegBook !== bIsRegBook) return aIsRegBook ? -1 : 1
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+  }
+
+  const trainingSections = (list: Training[]) => {
+    const regBooks = list.filter(t => !!t.registrationBook)
+    const completionTrainings = list.filter(t => !t.registrationBook)
+    return [
+      { key: 'regbook', label: '📋 연수등록부', items: regBooks },
+      { key: 'completion', label: '✍️ 이수번호 연수', items: completionTrainings },
+    ].filter(section => section.items.length > 0)
+  }
 
   // 사용자 정렬 함수
   const sortUsers = (users: User[]): User[] => {
@@ -530,6 +549,30 @@ const Trainings = () => {
     </thead>
   )
 
+  const renderTrainingTableBody = (list: Training[], completed = false) => {
+    if (list.length === 0) {
+      return (
+        <tr>
+          <td colSpan={6} className="px-6 py-8 text-center text-gray-400 text-sm">
+            {completed ? '완료된 연수가 없습니다.' : '진행 중인 연수가 없습니다.'}
+          </td>
+        </tr>
+      )
+    }
+
+    return trainingSections(list).flatMap(section => [
+      <tr key={`${section.key}-${completed ? 'done' : 'active'}`} className="bg-gray-50/80">
+        <td colSpan={6} className="px-6 py-2 text-xs font-bold text-gray-600 border-t border-gray-200">
+          {section.label}
+          <span className="ml-2 font-normal text-gray-400">({section.items.length}개)</span>
+        </td>
+      </tr>,
+      ...section.items.map(training => (
+        <TrainingRow key={training.id} training={training} completed={completed} />
+      )),
+    ])
+  }
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -571,17 +614,7 @@ const Trainings = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 {tableHead}
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {activeTrainings.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-400 text-sm">
-                        진행 중인 연수가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    activeTrainings.map((training) => (
-                      <TrainingRow key={training.id} training={training} />
-                    ))
-                  )}
+                  {renderTrainingTableBody(activeTrainings)}
                 </tbody>
               </table>
               </div>
@@ -602,9 +635,7 @@ const Trainings = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     {tableHead}
                     <tbody className="divide-y divide-gray-200">
-                      {completedTrainings.map((training) => (
-                        <TrainingRow key={training.id} training={training} completed />
-                      ))}
+                      {renderTrainingTableBody(completedTrainings, true)}
                     </tbody>
                   </table>
                   </div>
