@@ -433,47 +433,49 @@ const Trainings = () => {
             : 'hover:bg-gray-50'
         }
       >
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-          <div className="flex items-center gap-2">
+        <td className="px-3 py-3 text-sm font-medium align-top">
+          <div className="flex items-start gap-1.5 min-w-0">
             {isRegBook && (
-              <span className="text-xs bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-semibold">등록부</span>
+              <span className="shrink-0 text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-semibold">등록부</span>
             )}
             <button
               onClick={() => navigate(`/dashboard/trainings/${training.id}`)}
-              className={`hover:underline ${completed ? 'text-gray-500 line-through' : isRegBook ? 'text-purple-700 hover:text-purple-900' : 'text-indigo-600 hover:text-indigo-900'}`}
+              className={`min-w-0 text-left leading-snug break-words line-clamp-3 hover:underline ${completed ? 'text-gray-500 line-through' : isRegBook ? 'text-purple-700 hover:text-purple-900' : 'text-indigo-600 hover:text-indigo-900'}`}
+              title={training.name}
             >
               {training.name}
             </button>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-2 py-3 text-xs text-gray-500 align-top break-words">
           {training.targetUsers?.join(', ') || '-'}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-2 py-3 text-xs text-gray-500 align-top break-words">
           {training.manager || '-'}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500 align-top">
           {training.deadline ? new Date(training.deadline).toLocaleDateString('ko-KR') : '-'}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500 align-top">
           {(() => {
             const total = training.participants?.length || 0
             const entered = training.participants?.filter(p => p.completionNumber && p.completionNumber.trim()).length ?? 0
             return entered > 0 ? `${entered}/${total}명` : `${total}명`
           })()}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+        <td className="px-3 py-3 text-right align-top">
+          <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 text-xs font-semibold">
           {!completed && (
             <>
               <button
                 onClick={() => navigate(`/dashboard/trainings/${training.id}`)}
-                className="text-indigo-600 hover:text-indigo-900"
+                className="whitespace-nowrap text-indigo-600 hover:text-indigo-900"
               >
                 취합
               </button>
               <button
                 onClick={() => handleOpenParticipantModal(training)}
-                className="text-green-600 hover:text-green-900"
+                className="whitespace-nowrap text-green-600 hover:text-green-900"
                 title="참여자 추가/제거"
               >
                 👥 참여자
@@ -488,7 +490,7 @@ const Trainings = () => {
                     alert(error.response?.data?.error || '알림 발송 중 오류가 발생했습니다.')
                   }
                 }}
-                className="text-yellow-600 hover:text-yellow-900"
+                className="whitespace-nowrap text-yellow-600 hover:text-yellow-900"
                 title="미이수자 알림 발송"
               >
                 📧 알림
@@ -496,7 +498,7 @@ const Trainings = () => {
               {isTrainingAdmin && (
                 <button
                   onClick={() => handleComplete(training, true)}
-                  className="text-teal-600 hover:text-teal-900 font-semibold"
+                  className="whitespace-nowrap text-teal-600 hover:text-teal-900"
                   title="취합 완료 처리"
                 >
                   ✅ 취합완료
@@ -506,31 +508,32 @@ const Trainings = () => {
           )}
           <button
             onClick={() => handleDuplicate(training)}
-            className="text-purple-600 hover:text-purple-900"
+            className="whitespace-nowrap text-purple-600 hover:text-purple-900"
             title="이 연수를 복제하여 새 연수 만들기"
           >
             복제
           </button>
           <button
             onClick={() => handleEdit(training)}
-            className="text-indigo-600 hover:text-indigo-900"
+            className="whitespace-nowrap text-indigo-600 hover:text-indigo-900"
           >
             수정
           </button>
           {completed && isTrainingAdmin && (
             <button
               onClick={() => handleComplete(training, false)}
-              className="text-gray-500 hover:text-gray-700"
+              className="whitespace-nowrap text-gray-500 hover:text-gray-700"
             >
               완료취소
             </button>
           )}
           <button
             onClick={() => handleDelete(training.id)}
-            className="text-red-600 hover:text-red-900"
+            className="whitespace-nowrap text-red-600 hover:text-red-900"
           >
             삭제
           </button>
+          </div>
         </td>
       </tr>
     )
@@ -539,12 +542,12 @@ const Trainings = () => {
   const tableHead = (
     <thead className="bg-gray-50">
       <tr>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연수명</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대상자</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">담당자</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이수 기한</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">참여자 수</th>
-        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+        <th className="w-[25%] px-3 py-2 text-left text-xs font-medium text-gray-500">연수명</th>
+        <th className="w-[12%] px-2 py-2 text-left text-xs font-medium text-gray-500">대상자</th>
+        <th className="w-[10%] px-2 py-2 text-left text-xs font-medium text-gray-500">담당자</th>
+        <th className="w-[11%] px-2 py-2 text-left text-xs font-medium text-gray-500">이수 기한</th>
+        <th className="w-[9%] px-2 py-2 text-left text-xs font-medium text-gray-500">참여자</th>
+        <th className="w-[33%] px-3 py-2 text-right text-xs font-medium text-gray-500">작업</th>
       </tr>
     </thead>
   )
@@ -576,9 +579,9 @@ const Trainings = () => {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900">연수 관리</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleExportToExcel}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
@@ -610,8 +613,8 @@ const Trainings = () => {
           <div className="space-y-4">
             {/* 진행 중인 연수 */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <div className="w-full">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 {tableHead}
                 <tbody className="bg-white divide-y divide-gray-200">
                   {renderTrainingTableBody(activeTrainings)}
@@ -631,8 +634,8 @@ const Trainings = () => {
                   <span>{showCompleted ? '▲ 접기' : '▼ 펼치기'}</span>
                 </button>
                 {showCompleted && (
-                  <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <div className="w-full">
+                  <table className="w-full table-fixed divide-y divide-gray-200">
                     {tableHead}
                     <tbody className="divide-y divide-gray-200">
                       {renderTrainingTableBody(completedTrainings, true)}

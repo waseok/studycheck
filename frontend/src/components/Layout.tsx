@@ -129,21 +129,21 @@ const Layout = ({ children }: LayoutProps) => {
       </div>
 
       <div className="md:flex">
-        <aside className="hidden md:flex md:w-80 md:flex-shrink-0 min-h-screen bg-white border-r border-blue-100 shadow-sm flex-col">
-          <div className="h-24 flex items-center justify-center px-5 border-b border-blue-100">
+        <aside className="hidden md:flex md:w-64 md:flex-shrink-0 min-h-screen bg-white border-r border-blue-100 shadow-sm flex-col">
+          <div className="h-20 flex items-center justify-center px-4 border-b border-blue-100">
             <Link to="/dashboard" className="text-blue-800 text-center leading-tight flex flex-col items-center">
-              <img src="/school-logo.webp" alt="와석초등학교 교표" className="h-11 w-11 object-contain mb-1" />
-              <div className="font-extrabold text-2xl tracking-tight">와석초 연수관리 플랫폼</div>
+              <img src="/school-logo.webp" alt="와석초등학교 교표" className="h-9 w-9 object-contain mb-0.5" />
+              <div className="font-extrabold text-xl tracking-tight">와석초 연수관리 플랫폼</div>
             </Link>
           </div>
-          <nav className="p-3 space-y-1">
+          <nav className="p-2.5 space-y-1">
             {menuItems.map(item => {
               const active = item.startsWith ? isStartsWith(item.to) : isActive(item.to)
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center justify-between px-5 py-3 rounded-xl text-lg font-extrabold transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-900 hover:bg-blue-50'}`}
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-base font-extrabold transition ${active ? 'bg-blue-500 text-white shadow' : 'text-blue-900 hover:bg-blue-50'}`}
                 >
                   <span>{item.label}</span>
                   <span className="flex items-center gap-2">
@@ -171,7 +171,7 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
         </aside>
 
-        <main className="flex-1 py-6 md:py-8 md:px-6 lg:px-8 min-w-0 overflow-x-hidden">
+        <main className="flex-1 py-6 md:py-8 px-3 md:px-4 lg:px-6 min-w-0 overflow-x-hidden">
           {children}
         </main>
       </div>
