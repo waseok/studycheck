@@ -420,6 +420,33 @@ const Trainings = () => {
     XLSX.writeFile(wb, fileName)
   }
 
+  const TrainingActionButton = ({
+    label,
+    help,
+    className,
+    onClick,
+  }: {
+    label: string
+    help: string
+    className: string
+    onClick: () => void | Promise<void>
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative whitespace-nowrap ${className}`}
+      aria-label={`${label}: ${help}`}
+    >
+      {label}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-30 left-0 bottom-full mb-2 hidden w-48 rounded-lg bg-slate-800 px-3 py-2 text-left text-[11px] font-normal leading-relaxed text-white shadow-xl group-hover:block"
+      >
+        {help}
+      </span>
+    </button>
+  )
+
   const TrainingRow = ({ training, completed = false }: { training: Training; completed?: boolean }) => {
     const isRegBook = !!training.registrationBook
     return (
@@ -453,7 +480,7 @@ const Trainings = () => {
         <td className="px-2 py-3 text-xs text-gray-500 align-top break-words">
           {training.manager || '-'}
         </td>
-        <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500 align-top">
+        <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500 align-top text-center">
           {training.deadline ? new Date(training.deadline).toLocaleDateString('ko-KR') : '-'}
         </td>
         <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500 align-top">
@@ -463,24 +490,25 @@ const Trainings = () => {
             return entered > 0 ? `${entered}/${total}명` : `${total}명`
           })()}
         </td>
-        <td className="px-3 py-3 text-right align-top">
-          <div className="flex flex-wrap justify-end gap-x-2 gap-y-1 text-xs font-semibold">
+        <td className="px-3 py-3 align-top bg-slate-50/90 border-l border-slate-200">
+          <div className="flex flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs font-semibold">
           {!completed && (
             <>
-              <button
+              <TrainingActionButton
+                label="취합"
+                help="이수번호와 연수명을 확인하고 입력합니다."
                 onClick={() => navigate(`/dashboard/trainings/${training.id}`)}
                 className="whitespace-nowrap text-indigo-600 hover:text-indigo-900"
-              >
-                취합
-              </button>
-              <button
+              />
+              <TrainingActionButton
+                label="👥 참여자"
+                help="이 연수에 참여할 교직원을 추가하거나 제외합니다."
                 onClick={() => handleOpenParticipantModal(training)}
                 className="whitespace-nowrap text-green-600 hover:text-green-900"
-                title="참여자 추가/제거"
-              >
-                👥 참여자
-              </button>
-              <button
+              />
+              <TrainingActionButton
+                label="📧 알림"
+                help="이수정보를 입력하지 않은 참여자에게 안내 메일을 보냅니다."
                 onClick={async () => {
                   if (!confirm('미이수자에게 알림 메일을 발송하시겠습니까?')) return
                   try {
@@ -491,48 +519,43 @@ const Trainings = () => {
                   }
                 }}
                 className="whitespace-nowrap text-yellow-600 hover:text-yellow-900"
-                title="미이수자 알림 발송"
-              >
-                📧 알림
-              </button>
+              />
               {isTrainingAdmin && (
-                <button
+                <TrainingActionButton
+                  label="✅ 취합완료"
+                  help="이수정보 취합을 마감하고 완료 목록으로 이동합니다."
                   onClick={() => handleComplete(training, true)}
                   className="whitespace-nowrap text-teal-600 hover:text-teal-900"
-                  title="취합 완료 처리"
-                >
-                  ✅ 취합완료
-                </button>
+                />
               )}
             </>
           )}
-          <button
+          <TrainingActionButton
+            label="복제"
+            help="현재 연수 정보를 복사하여 새 연수를 만듭니다."
             onClick={() => handleDuplicate(training)}
             className="whitespace-nowrap text-purple-600 hover:text-purple-900"
-            title="이 연수를 복제하여 새 연수 만들기"
-          >
-            복제
-          </button>
-          <button
+          />
+          <TrainingActionButton
+            label="수정"
+            help="연수명, 대상자, 담당자, 기한 등 연수 정보를 수정합니다."
             onClick={() => handleEdit(training)}
             className="whitespace-nowrap text-indigo-600 hover:text-indigo-900"
-          >
-            수정
-          </button>
+          />
           {completed && isTrainingAdmin && (
-            <button
+            <TrainingActionButton
+              label="완료취소"
+              help="완료 처리를 취소하고 진행 중인 연수로 되돌립니다."
               onClick={() => handleComplete(training, false)}
               className="whitespace-nowrap text-gray-500 hover:text-gray-700"
-            >
-              완료취소
-            </button>
+            />
           )}
-          <button
+          <TrainingActionButton
+            label="삭제"
+            help="이 연수와 해당 연수의 참여 기록을 삭제합니다."
             onClick={() => handleDelete(training.id)}
             className="whitespace-nowrap text-red-600 hover:text-red-900"
-          >
-            삭제
-          </button>
+          />
           </div>
         </td>
       </tr>
@@ -542,12 +565,12 @@ const Trainings = () => {
   const tableHead = (
     <thead className="bg-gray-50">
       <tr>
-        <th className="w-[25%] px-3 py-2 text-left text-xs font-medium text-gray-500">연수명</th>
-        <th className="w-[12%] px-2 py-2 text-left text-xs font-medium text-gray-500">대상자</th>
-        <th className="w-[10%] px-2 py-2 text-left text-xs font-medium text-gray-500">담당자</th>
-        <th className="w-[11%] px-2 py-2 text-left text-xs font-medium text-gray-500">이수 기한</th>
-        <th className="w-[9%] px-2 py-2 text-left text-xs font-medium text-gray-500">참여자</th>
-        <th className="w-[33%] px-3 py-2 text-right text-xs font-medium text-gray-500">작업</th>
+        <th className="w-[30%] px-3 py-2 text-left text-xs font-medium text-gray-500">연수명</th>
+        <th className="w-[14%] px-2 py-2 text-left text-xs font-medium text-gray-500">대상자</th>
+        <th className="w-[11%] px-2 py-2 text-left text-xs font-medium text-gray-500">담당자</th>
+        <th className="w-[12%] px-2 py-2 text-left text-xs font-medium text-gray-500">이수 기한</th>
+        <th className="w-[8%] px-2 py-2 text-center text-xs font-medium text-gray-500">참여자</th>
+        <th className="w-[25%] px-3 py-2 text-left text-xs font-bold text-slate-700 bg-slate-100 border-l border-slate-200">작업</th>
       </tr>
     </thead>
   )
@@ -612,7 +635,7 @@ const Trainings = () => {
         ) : (
           <div className="space-y-4">
             {/* 진행 중인 연수 */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="bg-white shadow rounded-lg">
               <div className="w-full">
               <table className="w-full table-fixed divide-y divide-gray-200">
                 {tableHead}
@@ -625,7 +648,7 @@ const Trainings = () => {
 
             {/* 완료 목록 (접기/펼치기) */}
             {completedTrainings.length > 0 && (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="bg-white shadow rounded-lg">
                 <button
                   onClick={() => setShowCompleted(v => !v)}
                   className="w-full flex items-center justify-between px-6 py-3 bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-600 transition-colors"
