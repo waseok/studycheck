@@ -1,7 +1,5 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import prisma from '../utils/prisma'
 
 // 그룹 목록 조회
 export const getGroups = async (_req: Request, res: Response) => {

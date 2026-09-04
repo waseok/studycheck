@@ -1,9 +1,7 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { createSignatureAccessToken, verifySignatureAccessToken } from '../utils/signatureAccessToken'
 import { buildExternalParticipantUser, ExternalParticipantInput } from '../utils/externalParticipant'
-
-const prisma = new PrismaClient()
+import prisma from '../utils/prisma'
 
 // 직위 정렬 순서 (연수등록부와 동일)
 const getPositionOrder = (position: string | null, userType: string): number => {
