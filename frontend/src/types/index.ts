@@ -27,6 +27,7 @@ export interface Training {
   method?: string
   methodLink?: string
   deadline?: string
+  allowExternalSignatures?: boolean
   isCompleted?: boolean
   completedAt?: string
   createdAt: string

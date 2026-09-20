@@ -16,6 +16,7 @@ export interface MeetingParticipant {
   grade: string | null
   class: string | null
   isExternal: boolean
+  isSelfRegistered?: boolean
   absenceReason: string | null
   signature: MeetingSignatureInfo | null
 }
@@ -26,6 +27,7 @@ export interface Meeting {
   agenda: string | null
   date: string | null
   location: string | null
+  allowExternalSignatures: boolean
   isCompleted: boolean
   completedAt: string | null
   participants: { id: string; user: { id: string; name: string } }[]
@@ -39,6 +41,7 @@ export interface MeetingDetail {
     agenda: string | null
     date: string | null
     location: string | null
+    allowExternalSignatures: boolean
     isCompleted: boolean
     completedAt: string | null
   }
@@ -83,6 +86,7 @@ export const createMeeting = async (data: {
   date?: string
   location?: string
   participantIds?: string[]
+  allowExternalSignatures?: boolean
 }): Promise<Meeting> => {
   const response = await apiClient.post<Meeting>('/meetings', data)
   return response.data
@@ -93,6 +97,7 @@ export const updateMeeting = async (id: string, data: {
   agenda?: string
   date?: string
   location?: string
+  allowExternalSignatures?: boolean
 }): Promise<Meeting> => {
   const response = await apiClient.put<Meeting>(`/meetings/${id}`, data)
   return response.data
@@ -170,11 +175,12 @@ export const savePublicMeetingSignature = async (
   meetingId: string,
   token: string,
   signatureImage: string,
-  targetUserId?: string
+  targetUserId?: string,
+  externalParticipant?: { name: string; affiliation: string; position?: string }
 ): Promise<{ success: boolean }> => {
   const response = await axios.post<{ success: boolean }>(
     `${API_URL}/meetings/public/${meetingId}/signature`,
-    { signatureImage, targetUserId },
+    { signatureImage, targetUserId, externalParticipant },
     { params: { token } }
   )
   return response.data

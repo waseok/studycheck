@@ -14,7 +14,13 @@ const MeetingList = () => {
   const [showCreate, setShowCreate] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [groups, setGroups] = useState<StaffGroup[]>([])
-  const [form, setForm] = useState({ name: '', agenda: '', date: '', location: '' })
+  const [form, setForm] = useState({
+    name: '',
+    agenda: '',
+    date: '',
+    location: '',
+    allowExternalSignatures: false
+  })
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [saving, setSaving] = useState(false)
@@ -70,10 +76,11 @@ const MeetingList = () => {
         agenda: form.agenda || undefined,
         date: form.date || undefined,
         location: form.location || undefined,
-        participantIds: selectedUserIds
+        participantIds: selectedUserIds,
+        allowExternalSignatures: form.allowExternalSignatures
       })
       setShowCreate(false)
-      setForm({ name: '', agenda: '', date: '', location: '' })
+      setForm({ name: '', agenda: '', date: '', location: '', allowExternalSignatures: false })
       setSelectedUserIds([])
       setUserSearch('')
       navigate(`/dashboard/meetings/${meeting.id}`)
@@ -119,7 +126,8 @@ const MeetingList = () => {
         agenda: m.agenda ?? undefined,
         date: m.date ?? undefined,
         location: m.location ?? undefined,
-        participantIds
+        participantIds,
+        allowExternalSignatures: m.allowExternalSignatures
       })
       navigate(`/dashboard/meetings/${newMeeting.id}`)
     } catch {
@@ -333,6 +341,21 @@ const MeetingList = () => {
                   </div>
                 </div>
 
+                <label className="flex items-start gap-3 rounded-lg border-2 border-green-200 bg-green-50 px-4 py-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.allowExternalSignatures}
+                    onChange={e => setForm(f => ({ ...f, allowExternalSignatures: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-green-900">외부 참여자 서명 허용</span>
+                    <span className="block text-xs text-green-700 mt-0.5">
+                      본교 교직원이 아닌 참석자가 공개 링크에서 소속·성명·직위를 입력하고 직접 서명할 수 있습니다.
+                    </span>
+                  </span>
+                </label>
+
                 {/* 참가자 선택 */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -391,7 +414,7 @@ const MeetingList = () => {
               <div className="p-6 border-t border-gray-100 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setShowCreate(false); setForm({ name: '', agenda: '', date: '', location: '' }); setSelectedUserIds([]); setModalError('') }}
+                  onClick={() => { setShowCreate(false); setForm({ name: '', agenda: '', date: '', location: '', allowExternalSignatures: false }); setSelectedUserIds([]); setModalError('') }}
                   className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 >
                   취소

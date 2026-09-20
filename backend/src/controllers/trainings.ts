@@ -41,7 +41,8 @@ export const createTraining = async (req: Request, res: Response) => {
       manager,
       method,
       methodLink,
-      deadline
+      deadline,
+      allowExternalSignatures
     } = req.body
 
     if (!name) {
@@ -66,6 +67,7 @@ export const createTraining = async (req: Request, res: Response) => {
         manager: manager.trim(),
         method,
         methodLink,
+        allowExternalSignatures: !!allowExternalSignatures,
         deadline: deadline ? new Date(deadline) : null
       } as any
     })
@@ -74,6 +76,7 @@ export const createTraining = async (req: Request, res: Response) => {
     if (Array.isArray(targetUsers) && targetUsers.length > 0) {
       const matchingUsers = await prisma.user.findMany({
         where: {
+          email: { not: { endsWith: '@studycheck.invalid' } },
           userType: {
             in: targetUsers
           }
@@ -132,7 +135,8 @@ export const updateTraining = async (req: Request, res: Response) => {
       manager,
       method,
       methodLink,
-      deadline
+      deadline,
+      allowExternalSignatures
     } = req.body
 
     // 담당자 필수 검증
@@ -155,6 +159,7 @@ export const updateTraining = async (req: Request, res: Response) => {
         ...(manager !== undefined && { manager: manager.trim() }),
         ...(method !== undefined && { method }),
         ...(methodLink !== undefined && { methodLink }),
+        ...(allowExternalSignatures !== undefined && { allowExternalSignatures: !!allowExternalSignatures }),
         ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null })
       } as any
     })
@@ -165,7 +170,8 @@ export const updateTraining = async (req: Request, res: Response) => {
       await prisma.$transaction(async (tx) => {
         // 기존 참여자 조회 (이수번호가 있는 것 보존)
         const existingParticipants = await tx.trainingParticipant.findMany({
-          where: { trainingId: id }
+          where: { trainingId: id },
+          include: { user: { select: { email: true } } }
         })
 
         // 기존 참여자 정보를 맵으로 저장 (이수번호 보존용)
@@ -177,6 +183,7 @@ export const updateTraining = async (req: Request, res: Response) => {
         if (targetUsers.length > 0) {
           const matchingUsers = await tx.user.findMany({
             where: {
+              email: { not: { endsWith: '@studycheck.invalid' } },
               userType: {
                 in: targetUsers
               }
@@ -186,7 +193,7 @@ export const updateTraining = async (req: Request, res: Response) => {
           // 기존 참여자 중 새로운 대상자에 포함되지 않는 사용자 삭제
           const matchingUserIds = new Set(matchingUsers.map(u => u.id))
           const toDelete = existingParticipants.filter(
-            p => !matchingUserIds.has(p.userId)
+            p => !p.user.email.endsWith('@studycheck.invalid') && !matchingUserIds.has(p.userId)
           )
 
           if (toDelete.length > 0) {
@@ -212,10 +219,15 @@ export const updateTraining = async (req: Request, res: Response) => {
             })
           }
         } else {
-          // targetUsers가 빈 배열이면 모든 참여자 삭제
-          await tx.trainingParticipant.deleteMany({
-            where: { trainingId: id }
-          })
+          // 대상 범위를 비워도 이미 등록된 외부 참여자는 보존합니다.
+          const internalParticipantIds = existingParticipants
+            .filter(p => !p.user.email.endsWith('@studycheck.invalid'))
+            .map(p => p.id)
+          if (internalParticipantIds.length > 0) {
+            await tx.trainingParticipant.deleteMany({
+              where: { id: { in: internalParticipantIds } }
+            })
+          }
         }
       }, { timeout: 30000 })
     }

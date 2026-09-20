@@ -14,6 +14,8 @@ const PublicTrainingSignature = () => {
   const [error, setError] = useState('')
   const [data, setData] = useState<Awaited<ReturnType<typeof getPublicSignatureBook>> | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [signerType, setSignerType] = useState<'staff' | 'external'>('staff')
+  const [externalForm, setExternalForm] = useState({ affiliation: '', name: '', position: '' })
   const [hideSigned, setHideSigned] = useState(false)
   const [signComplete, setSignComplete] = useState(false)
 
@@ -26,6 +28,10 @@ const PublicTrainingSignature = () => {
     try {
       const result = await getPublicSignatureBook(trainingId, token)
       setData(result)
+      const selectableParticipants = result.participants.filter(p => !p.isSelfRegistered)
+      if (result.training.allowExternalSignatures && selectableParticipants.length === 0) {
+        setSignerType('external')
+      }
     } catch (err: any) {
       setError(err?.response?.data?.error || '서명 정보를 불러오지 못했습니다.')
     } finally {
@@ -39,8 +45,16 @@ const PublicTrainingSignature = () => {
 
   const handleSign = async () => {
     if (!trainingId || !token || !signaturePadRef.current) return
-    if (!selectedUserId) {
+    if (signerType === 'staff' && !selectedUserId) {
       alert('서명하기 전에 본인의 이름을 선택하세요!')
+      return
+    }
+    if (signerType === 'external' && !externalForm.affiliation.trim()) {
+      alert('소속을 입력해주세요.')
+      return
+    }
+    if (signerType === 'external' && !externalForm.name.trim()) {
+      alert('성명을 입력해주세요.')
       return
     }
     if (signaturePadRef.current.isEmpty()) {
@@ -49,7 +63,19 @@ const PublicTrainingSignature = () => {
     }
     setSaving(true)
     try {
-      await savePublicSignature(trainingId, token, signaturePadRef.current.toDataURL(), selectedUserId)
+      await savePublicSignature(
+        trainingId,
+        token,
+        signaturePadRef.current.toDataURL(),
+        signerType === 'staff' ? selectedUserId : undefined,
+        signerType === 'external'
+          ? {
+              affiliation: externalForm.affiliation.trim(),
+              name: externalForm.name.trim(),
+              position: externalForm.position.trim() || undefined
+            }
+          : undefined
+      )
       setSignComplete(true)
       // 서명 완료 후 창 닫기 시도 (링크로 연 탭에서 동작할 수 있음)
       setTimeout(() => {
@@ -66,7 +92,9 @@ const PublicTrainingSignature = () => {
   const completed = Boolean(participant?.signature)
   const isAbsent = Boolean(participant?.absenceReason)
   const sortedParticipants = useMemo(() => {
-    return [...(data?.participants ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    return [...(data?.participants ?? [])]
+      .filter(p => !p.isSelfRegistered)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
   }, [data?.participants])
   const visibleParticipants = hideSigned
     ? sortedParticipants.filter((p) => !p.signature && !p.absenceReason)
@@ -93,7 +121,31 @@ const PublicTrainingSignature = () => {
         <h1 className="text-2xl font-bold text-slate-900 mb-1">연수등록부 서명</h1>
         <p className="text-slate-600 text-sm mb-4">{data?.training?.name || '-'}</p>
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{error}</div>}
-        {sortedParticipants.length ? (
+
+        {data?.training.allowExternalSignatures && (
+          <div className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setSignerType('staff')}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                signerType === 'staff' ? 'bg-white text-blue-700 shadow' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              본교 교직원
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSignerType('external'); setSelectedUserId('') }}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                signerType === 'external' ? 'bg-white text-purple-700 shadow' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              외부 참여자
+            </button>
+          </div>
+        )}
+
+        {signerType === 'staff' && sortedParticipants.length ? (
           <div className="mb-4 text-sm text-slate-700">
             <div className="mb-3 bg-amber-50 border-2 border-amber-400 rounded-lg px-4 py-3 text-amber-900 font-semibold text-center">
               ⚠️ 서명하기 전에 본인의 이름을 선택하세요!
@@ -121,13 +173,58 @@ const PublicTrainingSignature = () => {
             </select>
           </div>
         ) : null}
-        {!selectedUserId ? (
+
+        {signerType === 'external' && data?.training.allowExternalSignatures && (
+          <div className="mb-4 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
+            <h2 className="font-bold text-purple-900 mb-1">외부 참여자 정보</h2>
+            <p className="text-xs text-purple-700 mb-3">소속과 성명을 정확히 입력해 주세요. 직위는 선택사항입니다.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">소속 *</label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={externalForm.affiliation}
+                  onChange={e => setExternalForm(f => ({ ...f, affiliation: e.target.value }))}
+                  placeholder="예: 파주교육지원청, ○○초등학교"
+                  className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">성명 *</label>
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={externalForm.name}
+                    onChange={e => setExternalForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="성명"
+                    className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">직위</label>
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={externalForm.position}
+                    onChange={e => setExternalForm(f => ({ ...f, position: e.target.value }))}
+                    placeholder="예: 장학사"
+                    className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {signerType === 'staff' && !selectedUserId ? (
           <div className="bg-gray-50 border border-gray-200 text-gray-500 rounded px-4 py-6 text-center text-sm">
             위 목록에서 본인의 이름을 선택한 후 서명해 주세요.
           </div>
-        ) : completed ? (
+        ) : signerType === 'staff' && completed ? (
           <div className="bg-green-50 border border-green-200 text-green-700 rounded px-4 py-3">이미 서명이 완료되었습니다.</div>
-        ) : isAbsent ? (
+        ) : signerType === 'staff' && isAbsent ? (
           <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded px-4 py-3">
             불참 처리된 대상자입니다. ({participant?.absenceReason})
           </div>

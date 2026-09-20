@@ -30,7 +30,13 @@ const MeetingDetail = () => {
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', agenda: '', date: '', location: '' })
+  const [editForm, setEditForm] = useState({
+    name: '',
+    agenda: '',
+    date: '',
+    location: '',
+    allowExternalSignatures: false
+  })
   const [showShareLinkModal, setShowShareLinkModal] = useState(false)
   const [shareLinkDays, setShareLinkDays] = useState('3')
   const [shareLinkUrl, setShareLinkUrl] = useState('')
@@ -297,7 +303,8 @@ const MeetingDetail = () => {
         name: editForm.name,
         agenda: editForm.agenda || undefined,
         date: editForm.date || undefined,
-        location: editForm.location || undefined
+        location: editForm.location || undefined,
+        allowExternalSignatures: editForm.allowExternalSignatures
       })
       setEditing(false)
       await fetchData()
@@ -374,7 +381,8 @@ const MeetingDetail = () => {
                       name: data.meeting.name,
                       agenda: data.meeting.agenda || '',
                       date: data.meeting.date || '',
-                      location: data.meeting.location || ''
+                      location: data.meeting.location || '',
+                      allowExternalSignatures: data.meeting.allowExternalSignatures
                     })
                     setEditing(true)
                   }}
@@ -761,6 +769,20 @@ const MeetingDetail = () => {
                     className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-green-500 focus:outline-none" />
                 </div>
               </div>
+              <label className="flex items-start gap-3 rounded-lg border-2 border-green-200 bg-green-50 px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.allowExternalSignatures}
+                  onChange={e => setEditForm(f => ({ ...f, allowExternalSignatures: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-green-900">외부 참여자 서명 허용</span>
+                  <span className="block text-xs text-green-700 mt-0.5">
+                    외부 참석자가 공개 링크에서 소속·성명·직위를 입력하고 직접 서명할 수 있습니다.
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="flex gap-3 mt-4">
               <button onClick={() => setEditing(false)}

@@ -1,6 +1,11 @@
 import { Request, Response } from 'express'
 import { createSignatureAccessToken, verifySignatureAccessToken } from '../utils/signatureAccessToken'
-import { buildExternalParticipantUser, ExternalParticipantInput } from '../utils/externalParticipant'
+import {
+  buildExternalParticipantUser,
+  buildSelfRegisteredExternalUser,
+  ExternalParticipantInput,
+  isSelfRegisteredExternalEmail
+} from '../utils/externalParticipant'
 import prisma from '../utils/prisma'
 
 // 직위 정렬 순서 (연수등록부와 동일)
@@ -104,6 +109,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         grade: p.user.grade,
         class: p.user.class,
         isExternal: p.user.email.endsWith('@studycheck.invalid'),
+        isSelfRegistered: isSelfRegisteredExternalEmail(p.user.email),
         absenceReason: p.absenceReason,
         signature: signatureMap.get(p.userId) ?? null
       }))
@@ -127,6 +133,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         agenda: meeting.agenda,
         date: meeting.date,
         location: meeting.location,
+        allowExternalSignatures: meeting.allowExternalSignatures,
         isCompleted: meeting.isCompleted,
         completedAt: meeting.completedAt
       },
@@ -141,12 +148,13 @@ export const getMeeting = async (req: Request, res: Response) => {
 // 회의 생성 (관리자)
 export const createMeeting = async (req: Request, res: Response) => {
   try {
-    const { name, agenda, date, location, participantIds } = req.body as {
+    const { name, agenda, date, location, participantIds, allowExternalSignatures } = req.body as {
       name: string
       agenda?: string
       date?: string
       location?: string
       participantIds?: string[]
+      allowExternalSignatures?: boolean
     }
     const createdById = (req as any).user?.userId
 
@@ -159,6 +167,7 @@ export const createMeeting = async (req: Request, res: Response) => {
         agenda: agenda?.trim() || null,
         date: date?.trim() || null,
         location: location?.trim() || null,
+        allowExternalSignatures: !!allowExternalSignatures,
         createdById,
         participants: participantIds?.length
           ? { create: participantIds.map(userId => ({ userId })) }
@@ -176,8 +185,8 @@ export const createMeeting = async (req: Request, res: Response) => {
 export const updateMeeting = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, agenda, date, location } = req.body as {
-      name?: string; agenda?: string; date?: string; location?: string
+    const { name, agenda, date, location, allowExternalSignatures } = req.body as {
+      name?: string; agenda?: string; date?: string; location?: string; allowExternalSignatures?: boolean
     }
     const meeting = await prisma.meeting.update({
       where: { id },
@@ -185,7 +194,8 @@ export const updateMeeting = async (req: Request, res: Response) => {
         ...(name !== undefined && { name: name.trim() }),
         ...(agenda !== undefined && { agenda: agenda?.trim() || null }),
         ...(date !== undefined && { date: date?.trim() || null }),
-        ...(location !== undefined && { location: location?.trim() || null })
+        ...(location !== undefined && { location: location?.trim() || null }),
+        ...(allowExternalSignatures !== undefined && { allowExternalSignatures: !!allowExternalSignatures })
       }
     })
     res.json(meeting)
@@ -446,6 +456,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
       grade: p.user.grade,
       class: p.user.class,
       isExternal: p.user.email.endsWith('@studycheck.invalid'),
+      isSelfRegistered: isSelfRegisteredExternalEmail(p.user.email),
       absenceReason: p.absenceReason,
       signature: signatureMap.get(p.userId) ?? null
     }))
@@ -457,6 +468,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
         agenda: meeting.agenda,
         date: meeting.date,
         location: meeting.location,
+        allowExternalSignatures: meeting.allowExternalSignatures,
         isCompleted: meeting.isCompleted,
         completedAt: meeting.completedAt
       },
@@ -473,11 +485,56 @@ export const saveMeetingSignatureByAccessToken = async (req: Request, res: Respo
   try {
     const { id: meetingId } = req.params
     const token = String(req.query.token || '')
-    const { signatureImage, targetUserId } = req.body as { signatureImage?: string; targetUserId?: string }
+    const { signatureImage, targetUserId, externalParticipant } = req.body as {
+      signatureImage?: string
+      targetUserId?: string
+      externalParticipant?: ExternalParticipantInput
+    }
     const verified = verifySignatureAccessToken(token, 'meeting', meetingId)
     if (!verified) return res.status(401).json({ error: '유효하지 않거나 만료된 서명 링크입니다.' })
     if (!signatureImage?.startsWith('data:image/')) {
       return res.status(400).json({ error: '올바른 서명 이미지가 필요합니다.' })
+    }
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
+
+    if (externalParticipant) {
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+        select: { allowExternalSignatures: true }
+      })
+      if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없습니다.' })
+      if (!meeting.allowExternalSignatures) {
+        return res.status(403).json({ error: '이 회의는 외부 참여자 서명을 허용하지 않습니다.' })
+      }
+
+      const userData = buildSelfRegisteredExternalUser('meeting', meetingId, externalParticipant)
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.upsert({
+          where: { email: userData.email },
+          create: userData,
+          update: {
+            name: userData.name,
+            userType: userData.userType,
+            position: userData.position
+          }
+        })
+        await tx.meetingParticipant.upsert({
+          where: { meetingId_userId: { meetingId, userId: user.id } },
+          create: { meetingId, userId: user.id },
+          update: {}
+        })
+        const existingSignature = await tx.meetingSignature.findUnique({
+          where: { meetingId_userId: { meetingId, userId: user.id } },
+          select: { id: true }
+        })
+        if (existingSignature) throw new Error('EXTERNAL_SIGNATURE_DUPLICATE')
+        await tx.meetingSignature.create({
+          data: { meetingId, userId: user.id, signatureImage, ipAddress }
+        })
+      })
+
+      return res.json({ success: true })
     }
 
     const userId = verified.userId || targetUserId
@@ -489,8 +546,6 @@ export const saveMeetingSignatureByAccessToken = async (req: Request, res: Respo
     if (!participant) return res.status(403).json({ error: '해당 회의의 참가자가 아닙니다.' })
     if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
 
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
-
     await prisma.meetingSignature.upsert({
       where: { meetingId_userId: { meetingId, userId } },
       create: { meetingId, userId, signatureImage, ipAddress },
@@ -499,6 +554,19 @@ export const saveMeetingSignatureByAccessToken = async (req: Request, res: Respo
 
     res.json({ success: true })
   } catch (error) {
+    const errorCode = error instanceof Error ? error.message : ''
+    if (errorCode === 'EXTERNAL_SIGNATURE_DUPLICATE' || (error as any)?.code === 'P2002') {
+      return res.status(409).json({ error: '같은 소속과 성명으로 이미 서명이 완료되었습니다.' })
+    }
+    if (errorCode === 'EXTERNAL_PARTICIPANT_NAME_REQUIRED') {
+      return res.status(400).json({ error: '성명을 입력해주세요.' })
+    }
+    if (errorCode === 'EXTERNAL_PARTICIPANT_AFFILIATION_REQUIRED') {
+      return res.status(400).json({ error: '소속을 입력해주세요.' })
+    }
+    if (errorCode.endsWith('_TOO_LONG')) {
+      return res.status(400).json({ error: '외부 참여자 입력 내용이 너무 깁니다.' })
+    }
     console.error('saveMeetingSignatureByAccessToken error:', error)
     res.status(500).json({ error: '서버 오류가 발생했습니다.' })
   }

@@ -36,7 +36,8 @@ const Trainings = () => {
     manager: '',
     method: '',
     methodLink: '',
-    deadline: ''
+    deadline: '',
+    allowExternalSignatures: false
   })
 
   // 참여자 관리 관련 상태
@@ -59,6 +60,7 @@ const Trainings = () => {
     implementationDate: '',
     department: '',
     deadline: '',
+    allowExternalSignatures: false,
   })
   const [trainingItems, setTrainingItems] = useState<TrainingItem[]>([
     { content: '', manager: '' }
@@ -198,7 +200,8 @@ const Trainings = () => {
       manager: '',
       method: '',
       methodLink: '',
-      deadline: ''
+      deadline: '',
+      allowExternalSignatures: false
     })
     setShowModal(true)
   }
@@ -217,7 +220,8 @@ const Trainings = () => {
       manager: training.manager || '',
       method: training.method || '',
       methodLink: training.methodLink || '',
-      deadline: training.deadline ? training.deadline.split('T')[0] : ''
+      deadline: training.deadline ? training.deadline.split('T')[0] : '',
+      allowExternalSignatures: !!training.allowExternalSignatures
     })
     // 연수등록부로 만들어진 경우 항목 파싱
     if (training.registrationBook) {
@@ -248,6 +252,7 @@ const Trainings = () => {
       method: training.method || '',
       methodLink: training.methodLink || '',
       deadline: training.deadline ? training.deadline.split('T')[0] : '',
+      allowExternalSignatures: !!training.allowExternalSignatures,
     })
     if (training.registrationBook) {
       try {
@@ -327,6 +332,7 @@ const Trainings = () => {
       implementationDate: '',
       department: '',
       deadline: '',
+      allowExternalSignatures: false,
     })
     setTrainingItems([{ content: '', manager: '' }])
     setShowRegisterModal(true)
@@ -385,6 +391,7 @@ const Trainings = () => {
         method: '',
         methodLink: '',
         deadline: registerFormData.deadline,
+        allowExternalSignatures: registerFormData.allowExternalSignatures,
       })
       setShowRegisterModal(false)
       fetchTrainings()
@@ -779,6 +786,7 @@ const Trainings = () => {
 
                 {/* 연수등록부로 만든 경우: 연수 내용/담당자 쌍 수정 */}
                 {(editingTraining?.registrationBook || formData.registrationBook) && editingItems.length > 0 && (
+                  <>
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-purple-700">📋 연수 내용 및 담당자 수정</label>
@@ -836,6 +844,21 @@ const Trainings = () => {
                       </tbody>
                     </table>
                   </div>
+                  <label className="flex items-start gap-3 rounded-lg border-2 border-purple-200 bg-purple-50 px-4 py-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.allowExternalSignatures}
+                      onChange={(e) => setFormData({ ...formData, allowExternalSignatures: e.target.checked })}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold text-purple-900">외부 참여자 서명 허용</span>
+                      <span className="block text-xs text-purple-700 mt-0.5">
+                        본교 교직원이 아닌 참여자가 공개 링크에서 소속·성명·직위를 입력하고 직접 서명할 수 있습니다.
+                      </span>
+                    </span>
+                  </label>
+                  </>
                 )}
 
                 {!editingTraining?.registrationBook && (
@@ -963,6 +986,21 @@ const Trainings = () => {
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-start gap-3 rounded-lg border-2 border-purple-200 bg-purple-50 px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={registerFormData.allowExternalSignatures}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, allowExternalSignatures: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-purple-900">외부 참여자 서명 허용</span>
+                  <span className="block text-xs text-purple-700 mt-0.5">
+                    본교 교직원이 아닌 참여자가 공개 링크에서 소속·성명·직위를 입력하고 직접 서명할 수 있습니다.
+                  </span>
+                </span>
+              </label>
 
               {/* 연수 내용 & 담당자 */}
               <div>

@@ -24,6 +24,8 @@ export interface SignatureParticipant {
   position: string | null
   grade: string | null
   class: string | null
+  isExternal?: boolean
+  isSelfRegistered?: boolean
   absenceReason: string | null
   signature: SignatureInfo | null
 }
@@ -37,6 +39,7 @@ export interface SignatureBookData {
     implementationDate: string | null
     hours: string | null
     registrationBook: string | null
+    allowExternalSignatures: boolean
   }
   participants: SignatureParticipant[]
 }
@@ -86,10 +89,13 @@ export const savePublicSignature = async (
   trainingId: string,
   token: string,
   signatureImage: string,
-  targetUserId?: string
+  targetUserId?: string,
+  externalParticipant?: { name: string; affiliation: string; position?: string }
 ): Promise<{ success: boolean }> => {
-  const response = await axios.post<{ success: boolean }>(`${API_URL}/signatures/public/training/${trainingId}`, { signatureImage, targetUserId }, {
-    params: { token }
-  })
+  const response = await axios.post<{ success: boolean }>(
+    `${API_URL}/signatures/public/training/${trainingId}`,
+    { signatureImage, targetUserId, externalParticipant },
+    { params: { token } }
+  )
   return response.data
 }

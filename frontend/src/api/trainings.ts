@@ -19,6 +19,7 @@ export const createTraining = async (data: {
   method?: string
   methodLink?: string
   deadline?: string
+  allowExternalSignatures?: boolean
 }): Promise<Training> => {
   const response = await apiClient.post<Training>('/trainings', data)
   return response.data
@@ -39,6 +40,7 @@ export const updateTraining = async (
     method: string
     methodLink: string
     deadline: string
+    allowExternalSignatures: boolean
   }>
 ): Promise<Training> => {
   const response = await apiClient.put<Training>(`/trainings/${id}`, data)

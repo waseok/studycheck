@@ -1,6 +1,12 @@
 import { Request, Response } from 'express'
 import prisma from '../utils/prisma'
 import { createSignatureAccessToken, verifySignatureAccessToken } from '../utils/signatureAccessToken'
+import {
+  buildSelfRegisteredExternalUser,
+  ExternalParticipantInput,
+  isExternalParticipantEmail,
+  isSelfRegisteredExternalEmail
+} from '../utils/externalParticipant'
 
 // 연수 서명 목록 조회 (참여자 + 서명 상태)
 export const getSignatures = async (req: Request, res: Response) => {
@@ -16,7 +22,7 @@ export const getSignatures = async (req: Request, res: Response) => {
       where: { trainingId },
       include: {
         user: {
-          select: { id: true, name: true, userType: true, position: true, grade: true, class: true }
+          select: { id: true, name: true, userType: true, position: true, grade: true, class: true, email: true }
         }
       }
     })
@@ -35,6 +41,8 @@ export const getSignatures = async (req: Request, res: Response) => {
       position: p.user.position,
       grade: p.user.grade,
       class: p.user.class,
+      isExternal: isExternalParticipantEmail(p.user.email),
+      isSelfRegistered: isSelfRegisteredExternalEmail(p.user.email),
       absenceReason: p.absenceReason,
       signature: signatureMap.has(p.user.id) ? {
         id: (signatureMap.get(p.user.id) as any).id,
@@ -213,7 +221,7 @@ export const getTrainingSignaturesByAccessToken = async (req: Request, res: Resp
       where: { trainingId },
       include: {
         user: {
-          select: { id: true, name: true, userType: true, position: true, grade: true, class: true }
+          select: { id: true, name: true, userType: true, position: true, grade: true, class: true, email: true }
         }
       }
     })
@@ -228,6 +236,8 @@ export const getTrainingSignaturesByAccessToken = async (req: Request, res: Resp
       position: p.user.position,
       grade: p.user.grade,
       class: p.user.class,
+      isExternal: isExternalParticipantEmail(p.user.email),
+      isSelfRegistered: isSelfRegisteredExternalEmail(p.user.email),
       absenceReason: p.absenceReason,
       signature: signatureMap.has(p.user.id) ? {
         id: (signatureMap.get(p.user.id) as any).id,
@@ -251,11 +261,60 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
   try {
     const { trainingId } = req.params
     const token = String(req.query.token || '')
-    const { signatureImage, targetUserId } = req.body as { signatureImage?: string; targetUserId?: string }
+    const { signatureImage, targetUserId, externalParticipant } = req.body as {
+      signatureImage?: string
+      targetUserId?: string
+      externalParticipant?: ExternalParticipantInput
+    }
     const verified = verifySignatureAccessToken(token, 'training', trainingId)
     if (!verified) return res.status(401).json({ error: '유효하지 않거나 만료된 서명 링크입니다.' })
     if (!signatureImage?.startsWith('data:image/')) {
       return res.status(400).json({ error: '올바른 이미지 형식이 아닙니다.' })
+    }
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
+
+    if (externalParticipant) {
+      const training = await prisma.training.findUnique({
+        where: { id: trainingId },
+        select: { allowExternalSignatures: true }
+      })
+      if (!training) return res.status(404).json({ error: '연수를 찾을 수 없습니다.' })
+      if (!training.allowExternalSignatures) {
+        return res.status(403).json({ error: '이 연수등록부는 외부 참여자 서명을 허용하지 않습니다.' })
+      }
+
+      const userData = buildSelfRegisteredExternalUser('training', trainingId, externalParticipant)
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.upsert({
+          where: { email: userData.email },
+          create: userData,
+          update: {
+            name: userData.name,
+            userType: userData.userType,
+            position: userData.position
+          }
+        })
+        await tx.trainingParticipant.upsert({
+          where: { trainingId_userId: { trainingId, userId: user.id } },
+          create: { trainingId, userId: user.id, status: 'pending' },
+          update: {}
+        })
+        const existingSignature = await tx.trainingSignature.findUnique({
+          where: { trainingId_userId: { trainingId, userId: user.id } },
+          select: { id: true }
+        })
+        if (existingSignature) throw new Error('EXTERNAL_SIGNATURE_DUPLICATE')
+        await tx.trainingSignature.create({
+          data: { trainingId, userId: user.id, signatureImage, ipAddress }
+        })
+        await tx.trainingParticipant.update({
+          where: { trainingId_userId: { trainingId, userId: user.id } },
+          data: { status: 'completed', completedAt: new Date() }
+        })
+      })
+
+      return res.json({ success: true })
     }
 
     const userId = verified.userId || targetUserId
@@ -266,8 +325,6 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
     })
     if (!participant) return res.status(403).json({ error: '해당 연수의 참여자가 아닙니다.' })
     if (participant.absenceReason) return res.status(403).json({ error: '불참 처리된 대상자는 서명할 수 없습니다.' })
-
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || undefined
 
     await prisma.$transaction([
       prisma.trainingSignature.upsert({
@@ -283,6 +340,19 @@ export const saveTrainingSignatureByAccessToken = async (req: Request, res: Resp
 
     res.json({ success: true })
   } catch (error) {
+    const errorCode = error instanceof Error ? error.message : ''
+    if (errorCode === 'EXTERNAL_SIGNATURE_DUPLICATE' || (error as any)?.code === 'P2002') {
+      return res.status(409).json({ error: '같은 소속과 성명으로 이미 서명이 완료되었습니다.' })
+    }
+    if (errorCode === 'EXTERNAL_PARTICIPANT_NAME_REQUIRED') {
+      return res.status(400).json({ error: '성명을 입력해주세요.' })
+    }
+    if (errorCode === 'EXTERNAL_PARTICIPANT_AFFILIATION_REQUIRED') {
+      return res.status(400).json({ error: '소속을 입력해주세요.' })
+    }
+    if (errorCode.endsWith('_TOO_LONG')) {
+      return res.status(400).json({ error: '외부 참여자 입력 내용이 너무 깁니다.' })
+    }
     console.error('saveTrainingSignatureByAccessToken error:', error)
     res.status(500).json({ error: '서버 오류가 발생했습니다.' })
   }
