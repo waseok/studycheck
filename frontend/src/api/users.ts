@@ -1,8 +1,10 @@
 import apiClient from './client'
 import { User } from '../types'
 
-export const getUsers = async (): Promise<User[]> => {
-  const response = await apiClient.get<User[]>('/users')
+export type UserListType = 'staff' | 'external' | 'archived' | 'all'
+
+export const getUsers = async (type: UserListType = 'staff'): Promise<User[]> => {
+  const response = await apiClient.get<User[]>('/users', { params: { type } })
   return response.data
 }
 
@@ -31,12 +33,39 @@ export const updateUser = async (
   return response.data
 }
 
-export const deleteUser = async (id: string): Promise<void> => {
-  await apiClient.delete(`/users/${id}`)
+export const deleteUser = async (id: string): Promise<{ success: boolean; message: string; archived?: boolean }> => {
+  const response = await apiClient.delete<{ success: boolean; message: string; archived?: boolean }>(`/users/${id}`)
+  return response.data
 }
 
-export const bulkDeleteUsers = async (ids: string[]): Promise<{ success: boolean; message: string; count: number }> => {
-  const response = await apiClient.delete<{ success: boolean; message: string; count: number }>('/users/bulk', { data: { ids } })
+export const bulkDeleteUsers = async (ids: string[]): Promise<{
+  success: boolean
+  message: string
+  count: number
+  deletedCount?: number
+  archivedCount?: number
+  skippedCount?: number
+}> => {
+  const response = await apiClient.delete<{
+    success: boolean
+    message: string
+    count: number
+    deletedCount?: number
+    archivedCount?: number
+    skippedCount?: number
+  }>('/users/bulk', { data: { ids } })
+  return response.data
+}
+
+/** 외부 참여자 일괄 보관 — 서명·참가 데이터 유지 */
+export const archiveUsers = async (ids: string[]): Promise<{ success: boolean; message: string; count: number }> => {
+  const response = await apiClient.post<{ success: boolean; message: string; count: number }>('/users/archive', { ids })
+  return response.data
+}
+
+/** 보관한 외부 참여자 복원 */
+export const restoreUsers = async (ids: string[]): Promise<{ success: boolean; message: string; count: number }> => {
+  const response = await apiClient.post<{ success: boolean; message: string; count: number }>('/users/restore', { ids })
   return response.data
 }
 
@@ -48,7 +77,7 @@ export const resetPin = async (id: string): Promise<{ success: boolean; message:
 export const bulkCreateUsers = async (file: File): Promise<{ success: boolean; message: string; count: number; users: User[] }> => {
   const formData = new FormData()
   formData.append('file', file)
-  
+
   const response = await apiClient.post<{ success: boolean; message: string; count: number; users: User[] }>(
     '/users/bulk',
     formData,
@@ -65,7 +94,9 @@ export const bulkCreateUsers = async (file: File): Promise<{ success: boolean; m
 export const getMyProfile = async (): Promise<User> => {
   const response = await apiClient.get<User>('/users/me')
   return response.data
-}// 현재 로그인한 사용자 정보 수정
+}
+
+// 현재 로그인한 사용자 정보 수정
 export const updateMyProfile = async (data: {
   name?: string
   email?: string

@@ -24,6 +24,8 @@ model User {
   mustSetPin Boolean @default(true) @map("must_set_pin") // PIN 설정 필요 여부
   savedSignature String? @map("saved_signature") // 저장된 서명 (base64 PNG)
   sortOrder     Int      @default(0) @map("sort_order") // 교직원 목록 수동 정렬 순서
+  isArchived    Boolean  @default(false) @map("is_archived") // 외부 참여자 보관(숨김) — 서명·참가 데이터 유지
+  archivedAt    DateTime? @map("archived_at") // 보관 처리 시각
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -37,6 +39,7 @@ model User {
   createdMeetings     Meeting[]
   staffGroupMembers   StaffGroupMember[]
 
+  @@index([isArchived])
   @@map("users")
 }
 

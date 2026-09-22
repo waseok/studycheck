@@ -1,8 +1,14 @@
 import { Request, Response } from 'express'
 import * as XLSX from 'xlsx'
 import prisma from '../utils/prisma'
+import { isExternalParticipantEmail } from '../utils/externalParticipant'
 
 type AppRole = 'SUPER_ADMIN' | 'TRAINING_ADMIN' | 'USER'
+
+/** 목록 범위: staff(기본·대상자 선택용) | external | archived | all */
+type UserListType = 'staff' | 'external' | 'archived' | 'all'
+
+const EXTERNAL_EMAIL_SUFFIX = '@studycheck.invalid'
 
 const applyRoleMapping = (role?: AppRole) => {
   if (!role) return {}
@@ -11,15 +17,121 @@ const applyRoleMapping = (role?: AppRole) => {
   return { isAdmin: false }
 }
 
+const buildUserListWhere = (type: UserListType) => {
+  switch (type) {
+    case 'external':
+      return {
+        isArchived: false,
+        email: { endsWith: EXTERNAL_EMAIL_SUFFIX }
+      }
+    case 'archived':
+      return { isArchived: true }
+    case 'all':
+      return {}
+    case 'staff':
+    default:
+      return {
+        isArchived: false,
+        email: { not: { endsWith: EXTERNAL_EMAIL_SUFFIX } }
+      }
+  }
+}
+
+/** 서명·참가 등 연동 기록이 있으면 하드 삭제 대신 보관 처리 */
+const userHasRelatedRecords = async (userId: string) => {
+  const [tp, ts, mp, ms, rem, groups] = await Promise.all([
+    prisma.trainingParticipant.count({ where: { userId } }),
+    prisma.trainingSignature.count({ where: { userId } }),
+    prisma.meetingParticipant.count({ where: { userId } }),
+    prisma.meetingSignature.count({ where: { userId } }),
+    prisma.trainingReminder.count({ where: { userId } }),
+    prisma.staffGroupMember.count({ where: { userId } }),
+  ])
+  return tp + ts + mp + ms + rem + groups > 0
+}
+
 export const getUsers = async (req: Request, res: Response) => {
   try {
+    const rawType = String(req.query.type || 'staff').toLowerCase()
+    const type: UserListType =
+      rawType === 'external' || rawType === 'archived' || rawType === 'all' || rawType === 'staff'
+        ? rawType
+        : 'staff'
+
     const users = await prisma.user.findMany({
+      where: buildUserListWhere(type),
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }]
     })
     res.json(users)
   } catch (error) {
     console.error('Get users error:', error)
     res.status(500).json({ error: '교직원 목록 조회 중 오류가 발생했습니다.' })
+  }
+}
+
+/** 외부 참여자(또는 연동 기록이 있는 사용자) 보관 — 서명·참가 데이터는 유지 */
+export const archiveUsers = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: string[] }
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '보관할 사용자 ID가 필요합니다.' })
+    }
+
+    const targets = await prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, email: true, isArchived: true, name: true }
+    })
+
+    if (targets.length === 0) {
+      return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' })
+    }
+
+    // 본교 교직원은 보관 대상이 아님(실수로 숨기지 않도록)
+    const nonExternal = targets.filter((u) => !isExternalParticipantEmail(u.email))
+    if (nonExternal.length > 0) {
+      return res.status(400).json({
+        error: '본교 교직원은 보관할 수 없습니다. 외부 참여자만 보관 처리하세요.',
+        details: nonExternal.map((u) => `${u.name} (${u.email})`)
+      })
+    }
+
+    const result = await prisma.user.updateMany({
+      where: { id: { in: targets.map((u) => u.id) }, isArchived: false },
+      data: { isArchived: true, archivedAt: new Date() }
+    })
+
+    res.json({
+      success: true,
+      message: `${result.count}명의 외부 참여자가 보관되었습니다. 서명·참가 기록은 그대로 유지됩니다.`,
+      count: result.count
+    })
+  } catch (error) {
+    console.error('Archive users error:', error)
+    res.status(500).json({ error: '외부 참여자 보관 중 오류가 발생했습니다.' })
+  }
+}
+
+/** 보관한 외부 참여자 복원 → 외부 참여자 목록에 다시 표시 */
+export const restoreUsers = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body as { ids?: string[] }
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '복원할 사용자 ID가 필요합니다.' })
+    }
+
+    const result = await prisma.user.updateMany({
+      where: { id: { in: ids }, isArchived: true },
+      data: { isArchived: false, archivedAt: null }
+    })
+
+    res.json({
+      success: true,
+      message: `${result.count}명이 복원되었습니다.`,
+      count: result.count
+    })
+  } catch (error) {
+    console.error('Restore users error:', error)
+    res.status(500).json({ error: '사용자 복원 중 오류가 발생했습니다.' })
   }
 }
 
@@ -383,11 +495,41 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
 
-    await prisma.user.delete({
-      where: { id }
-    })
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' })
+    }
 
-    res.json({ success: true, message: '교직원이 삭제되었습니다.' })
+    // 외부 참여자이거나 연동 기록이 있으면 하드 삭제 대신 보관(데이터 유지)
+    const isExternal = isExternalParticipantEmail(user.email)
+    const hasRelated = await userHasRelatedRecords(id)
+
+    if (isExternal || hasRelated) {
+      if (user.isArchived) {
+        if (hasRelated) {
+          return res.status(400).json({
+            error: '서명·참가 기록이 있어 완전히 삭제할 수 없습니다. 보관 상태를 유지합니다.'
+          })
+        }
+        await prisma.user.delete({ where: { id } })
+        return res.json({ success: true, message: '연동 기록이 없는 사용자가 삭제되었습니다.', archived: false })
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { isArchived: true, archivedAt: new Date() }
+      })
+      return res.json({
+        success: true,
+        message: isExternal
+          ? '외부 참여자가 보관되었습니다. 서명·참가 기록은 유지됩니다.'
+          : '연동 기록이 있어 삭제 대신 보관 처리되었습니다.',
+        archived: true
+      })
+    }
+
+    await prisma.user.delete({ where: { id } })
+    res.json({ success: true, message: '교직원이 삭제되었습니다.', archived: false })
   } catch (error) {
     console.error('Delete user error:', error)
     res.status(500).json({ error: '교직원 삭제 중 오류가 발생했습니다.' })
@@ -402,11 +544,54 @@ export const bulkDeleteUsers = async (req: Request, res: Response) => {
       return res.status(400).json({ error: '삭제할 사용자 ID가 필요합니다.' })
     }
 
-    const result = await prisma.user.deleteMany({
-      where: { id: { in: ids } }
+    const targets = await prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, email: true, isArchived: true }
     })
 
-    res.json({ success: true, message: `${result.count}명의 교직원이 삭제되었습니다.`, count: result.count })
+    let archivedCount = 0
+    let deletedCount = 0
+    let skippedCount = 0
+
+    for (const user of targets) {
+      const isExternal = isExternalParticipantEmail(user.email)
+      const hasRelated = await userHasRelatedRecords(user.id)
+
+      if (isExternal || hasRelated) {
+        if (user.isArchived && hasRelated) {
+          skippedCount += 1
+          continue
+        }
+        if (user.isArchived && !hasRelated) {
+          await prisma.user.delete({ where: { id: user.id } })
+          deletedCount += 1
+          continue
+        }
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isArchived: true, archivedAt: new Date() }
+        })
+        archivedCount += 1
+        continue
+      }
+
+      await prisma.user.delete({ where: { id: user.id } })
+      deletedCount += 1
+    }
+
+    const parts: string[] = []
+    if (deletedCount > 0) parts.push(`${deletedCount}명 삭제`)
+    if (archivedCount > 0) parts.push(`${archivedCount}명 보관(데이터 유지)`)
+    if (skippedCount > 0) parts.push(`${skippedCount}명 건너뜀(연동 기록 있음)`)
+
+    res.json({
+      success: true,
+      message: parts.length > 0 ? parts.join(', ') + ' 처리되었습니다.' : '처리할 대상이 없습니다.',
+      count: deletedCount + archivedCount,
+      deletedCount,
+      archivedCount,
+      skippedCount
+    })
   } catch (error) {
     console.error('Bulk delete users error:', error)
     res.status(500).json({ error: '교직원 일괄 삭제 중 오류가 발생했습니다.' })

@@ -9,6 +9,9 @@ export interface User {
   role?: AppRole
   isAdmin: boolean
   sortOrder?: number
+  /** 외부 참여자 보관(숨김) — 서명·참가 데이터는 DB에 유지 */
+  isArchived?: boolean
+  archivedAt?: string | null
   createdAt: string
   updatedAt: string
 }

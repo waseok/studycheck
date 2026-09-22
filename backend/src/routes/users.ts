@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetUserPin, bulkCreateUsers, downloadTemplate, getMyProfile, updateMyProfile, getSavedSignature, updateSavedSignature, reorderUsers } from '../controllers/users'
+import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, archiveUsers, restoreUsers, resetUserPin, bulkCreateUsers, downloadTemplate, getMyProfile, updateMyProfile, getSavedSignature, updateSavedSignature, reorderUsers } from '../controllers/users'
 import { authMiddleware, adminMiddleware, trainingAdminMiddleware } from '../middleware/auth'
 
 const router = Router()
@@ -39,6 +39,8 @@ router.get('/template', authMiddleware, adminMiddleware, downloadTemplate)
 router.post('/', authMiddleware, adminMiddleware, createUser)
 router.post('/bulk', authMiddleware, adminMiddleware, upload.single('file'), bulkCreateUsers)
 router.delete('/bulk', authMiddleware, adminMiddleware, bulkDeleteUsers)
+router.post('/archive', authMiddleware, adminMiddleware, archiveUsers)
+router.post('/restore', authMiddleware, adminMiddleware, restoreUsers)
 router.put('/:id', authMiddleware, adminMiddleware, updateUser)
 router.delete('/:id', authMiddleware, adminMiddleware, deleteUser)
 router.post('/:id/reset-pin', authMiddleware, adminMiddleware, resetUserPin)

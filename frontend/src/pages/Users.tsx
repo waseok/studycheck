@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
-import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, resetPin, bulkCreateUsers, reorderUsers } from '../api/users'
+import { getUsers, createUser, updateUser, deleteUser, bulkDeleteUsers, archiveUsers, restoreUsers, resetPin, bulkCreateUsers, reorderUsers, UserListType } from '../api/users'
 import { getRoleRequests, approveRoleRequest, rejectRoleRequest } from '../api/roleRequests'
 import { cleanupDuplicates } from '../api/participants'
 import { isAdmin } from '../api/auth'
 import { User, RoleRequest } from '../types'
 import { getGroups, createGroup, updateGroup, deleteGroup, addGroupMembers, removeGroupMember, StaffGroup } from '../api/groups'
+
+const isExternalEmail = (email: string) => email.endsWith('@studycheck.invalid')
 
 /** sortOrder가 모두 0일 때 적용하는 기본 직위·학년 정렬 */
 const applyDefaultUserSort = (users: User[]): User[] => {
@@ -39,8 +41,11 @@ const applyDefaultUserSort = (users: User[]): User[] => {
 
 const Users = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users')
-  const [users, setUsers] = useState<User[]>([])
+  /** 본교 교직원 / 외부 참여자 / 보관함 */
+  const [userListType, setUserListType] = useState<UserListType>('staff')
+  const [staffUsers, setStaffUsers] = useState<User[]>([])
   const [displayUsers, setDisplayUsers] = useState<User[]>([])
+  const [listCounts, setListCounts] = useState({ staff: 0, external: 0, archived: 0 })
   const [draggingUserId, setDraggingUserId] = useState<string | null>(null)
   const [reorderSaving, setReorderSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -105,12 +110,26 @@ const Users = () => {
   }
 
   useEffect(() => {
-    fetchUsers()
     fetchGroups()
     if (isAdmin()) {
       fetchPendingRoleRequests()
     }
   }, [])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+    fetchUsers()
+  }, [userListType])
+
+  const fetchStaffUsers = async () => {
+    try {
+      const data = await getUsers('staff')
+      setStaffUsers(data)
+      setListCounts((prev) => ({ ...prev, staff: data.length }))
+    } catch (error) {
+      console.error('fetchStaffUsers error:', error)
+    }
+  }
 
   const fetchPendingRoleRequests = async () => {
     if (!isAdmin()) return
@@ -232,10 +251,23 @@ const Users = () => {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const data = await getUsers()
-      setUsers(data)
+      // 현재 탭 목록 + 카운트(본교/외부/보관)를 함께 갱신
+      const [data, staff, external, archived] = await Promise.all([
+        getUsers(userListType),
+        userListType === 'staff' ? Promise.resolve(null) : getUsers('staff'),
+        userListType === 'external' ? Promise.resolve(null) : getUsers('external'),
+        userListType === 'archived' ? Promise.resolve(null) : getUsers('archived'),
+      ])
       const allDefaultOrder = data.length > 0 && data.every((u) => (u.sortOrder ?? 0) === 0)
-      setDisplayUsers(allDefaultOrder ? applyDefaultUserSort(data) : data)
+      setDisplayUsers(userListType === 'staff' && allDefaultOrder ? applyDefaultUserSort(data) : data)
+
+      const staffList = userListType === 'staff' ? data : (staff || [])
+      setStaffUsers(staffList)
+      setListCounts({
+        staff: staffList.length,
+        external: userListType === 'external' ? data.length : (external?.length ?? 0),
+        archived: userListType === 'archived' ? data.length : (archived?.length ?? 0),
+      })
     } catch (error) {
       console.error('교직원 목록 조회 오류:', error)
     } finally {
@@ -244,7 +276,7 @@ const Users = () => {
   }
 
   const handleDragStart = (userId: string) => {
-    if (!isAdmin()) return
+    if (!isAdmin() || userListType !== 'staff') return
     setDraggingUserId(userId)
   }
 
@@ -253,7 +285,7 @@ const Users = () => {
   }
 
   const handleDrop = async (targetUserId: string) => {
-    if (!isAdmin() || !draggingUserId || draggingUserId === targetUserId) return
+    if (!isAdmin() || userListType !== 'staff' || !draggingUserId || draggingUserId === targetUserId) return
 
     const fromIdx = displayUsers.findIndex((u) => u.id === draggingUserId)
     const toIdx = displayUsers.findIndex((u) => u.id === targetUserId)
@@ -268,7 +300,7 @@ const Users = () => {
     setReorderSaving(true)
     try {
       await reorderUsers(next.map((u) => u.id))
-      setUsers(next)
+      setStaffUsers(next)
     } catch (error: any) {
       alert(error.response?.data?.error || '순서 저장에 실패했습니다.')
       await fetchUsers()
@@ -315,29 +347,96 @@ const Users = () => {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return
+    const target = displayUsers.find((u) => u.id === id)
+    const isExternal = target ? isExternalEmail(target.email) : false
+    const isArchived = userListType === 'archived' || !!target?.isArchived
+
+    const confirmMsg = isArchived
+      ? '연동 기록이 없으면 완전히 삭제됩니다. 서명·참가 기록이 있으면 삭제되지 않습니다. 계속할까요?'
+      : isExternal || userListType === 'external'
+        ? '외부 참여자를 보관할까요?\n서명·참가 기록은 유지되며, 목록에서는 숨겨집니다.'
+        : '정말 삭제하시겠습니까?\n연동 기록이 있으면 삭제 대신 보관 처리됩니다.'
+
+    if (!confirm(confirmMsg)) return
 
     try {
-      await deleteUser(id)
-      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next })
-      fetchUsers()
-    } catch (error) {
+      const result = await deleteUser(id)
+      alert(result.message || '처리되었습니다.')
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+      await fetchUsers()
+      await fetchStaffUsers()
+    } catch (error: any) {
       console.error('교직원 삭제 오류:', error)
-      alert('삭제 중 오류가 발생했습니다.')
+      alert(error.response?.data?.error || '삭제 중 오류가 발생했습니다.')
     }
   }
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return
-    if (!confirm(`선택한 ${selectedIds.size}명의 교직원을 삭제하시겠습니까?`)) return
+
+    const confirmMsg =
+      userListType === 'external'
+        ? `선택한 ${selectedIds.size}명의 외부 참여자를 보관할까요?\n서명·참가 기록은 유지됩니다.`
+        : userListType === 'archived'
+          ? `선택한 ${selectedIds.size}명을 삭제할까요?\n연동 기록이 있는 항목은 건너뜁니다.`
+          : `선택한 ${selectedIds.size}명의 교직원을 삭제하시겠습니까?\n연동 기록이 있으면 보관 처리됩니다.`
+
+    if (!confirm(confirmMsg)) return
 
     try {
-      await bulkDeleteUsers(Array.from(selectedIds))
+      const result = await bulkDeleteUsers(Array.from(selectedIds))
+      alert(result.message || '처리되었습니다.')
       setSelectedIds(new Set())
-      fetchUsers()
-    } catch (error) {
+      await fetchUsers()
+      await fetchStaffUsers()
+    } catch (error: any) {
       console.error('일괄 삭제 오류:', error)
-      alert('일괄 삭제 중 오류가 발생했습니다.')
+      alert(error.response?.data?.error || '일괄 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 ${selectedIds.size}명의 외부 참여자를 보관할까요?\n서명·참가 기록은 유지됩니다.`)) return
+
+    try {
+      const result = await archiveUsers(Array.from(selectedIds))
+      alert(result.message || '보관되었습니다.')
+      setSelectedIds(new Set())
+      await fetchUsers()
+    } catch (error: any) {
+      console.error('일괄 보관 오류:', error)
+      alert(error.response?.data?.error || '일괄 보관 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 ${selectedIds.size}명을 외부 참여자 목록으로 복원할까요?`)) return
+
+    try {
+      const result = await restoreUsers(Array.from(selectedIds))
+      alert(result.message || '복원되었습니다.')
+      setSelectedIds(new Set())
+      await fetchUsers()
+    } catch (error: any) {
+      console.error('일괄 복원 오류:', error)
+      alert(error.response?.data?.error || '일괄 복원 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleRestoreOne = async (id: string) => {
+    if (!confirm('이 참여자를 외부 참여자 목록으로 복원할까요?')) return
+    try {
+      const result = await restoreUsers([id])
+      alert(result.message || '복원되었습니다.')
+      await fetchUsers()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '복원 중 오류가 발생했습니다.')
     }
   }
 
@@ -507,10 +606,15 @@ const Users = () => {
   }
 
   const groupMemberIds = new Set(selectedGroup?.members.map(m => m.userId) ?? [])
-  const filteredUsersForGroup = users.filter(u =>
+  // 그룹에는 본교 교직원만 추가 (외부·보관 제외)
+  const filteredUsersForGroup = staffUsers.filter(u =>
     !groupMemberIds.has(u.id) &&
     (u.name.includes(groupMemberSearch) || u.userType.includes(groupMemberSearch) || (u.position || '').includes(groupMemberSearch))
   )
+
+  const isStaffList = userListType === 'staff'
+  const isExternalList = userListType === 'external'
+  const isArchivedList = userListType === 'archived'
 
   return (
     <Layout>
@@ -518,7 +622,7 @@ const Users = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <h1 className="text-3xl sm:text-4xl font-bold text-blue-800">👥 교직원 관리</h1>
           <div className="flex gap-2 flex-wrap justify-start sm:justify-end">
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && userListType === 'staff' && (
               <div className="relative" ref={groupDropdownRef}>
                 <button
                   onClick={() => { setShowGroupDropdown(v => !v); setNewGroupFromSelection(false); setNewGroupNameFromSelection('') }}
@@ -606,7 +710,31 @@ const Users = () => {
                 )}
               </div>
             )}
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && userListType === 'external' && (
+              <button
+                onClick={handleBulkArchive}
+                className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700"
+              >
+                📦 선택 보관 ({selectedIds.size}명)
+              </button>
+            )}
+            {selectedIds.size > 0 && userListType === 'archived' && (
+              <>
+                <button
+                  onClick={handleBulkRestore}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+                >
+                  ↩ 선택 복원 ({selectedIds.size}명)
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  🗑️ 선택 삭제 ({selectedIds.size}명)
+                </button>
+              </>
+            )}
+            {selectedIds.size > 0 && userListType === 'staff' && (
               <button
                 onClick={handleBulkDelete}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
@@ -614,7 +742,7 @@ const Users = () => {
                 🗑️ 선택 삭제 ({selectedIds.size}명)
               </button>
             )}
-            {isAdmin() && (
+            {isAdmin() && userListType === 'staff' && (
               <button
                 onClick={handleCleanupDuplicates}
                 disabled={loading}
@@ -624,24 +752,28 @@ const Users = () => {
                 🔧 중복 레코드 정리
               </button>
             )}
-            <button
-              onClick={downloadTemplate}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              📥 엑셀 템플릿 다운로드
-            </button>
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              📤 엑셀 일괄 등록
-            </button>
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              교직원 등록
-            </button>
+            {userListType === 'staff' && (
+              <>
+                <button
+                  onClick={downloadTemplate}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  📥 엑셀 템플릿 다운로드
+                </button>
+                <button
+                  onClick={() => setShowBulkModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  📤 엑셀 일괄 등록
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  교직원 등록
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -729,7 +861,7 @@ const Users = () => {
             onClick={() => setActiveTab('users')}
             className={`px-6 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
           >
-            교직원 목록
+            사용자 목록
           </button>
           <button
             onClick={() => setActiveTab('groups')}
@@ -738,6 +870,43 @@ const Users = () => {
             그룹 관리
           </button>
         </div>
+
+        {/* 본교 / 외부 / 보관 하위 탭 */}
+        {activeTab === 'users' && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {([
+              { key: 'staff' as const, label: '본교 교직원', count: listCounts.staff },
+              { key: 'external' as const, label: '외부 참여자', count: listCounts.external },
+              { key: 'archived' as const, label: '보관함', count: listCounts.archived },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setUserListType(tab.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  userListType === tab.key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-1.5 text-xs ${userListType === tab.key ? 'text-blue-100' : 'text-gray-400'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'users' && isExternalList && (
+          <p className="text-sm text-gray-500 mb-2">
+            연수·회의 서명부에 직접 등록한 외부 참여자입니다. 보관하면 목록에서 숨겨지며, 서명·참가 기록은 그대로 유지됩니다.
+          </p>
+        )}
+        {activeTab === 'users' && isArchivedList && (
+          <p className="text-sm text-gray-500 mb-2">
+            보관한 참여자입니다. 복원하면 외부 참여자 목록에 다시 표시됩니다. 서명부·PDF 증빙은 삭제되지 않습니다.
+          </p>
+        )}
 
         {/* 그룹 관리 탭 */}
         {activeTab === 'groups' && (
@@ -850,7 +1019,7 @@ const Users = () => {
           <div className="text-center py-8">로딩 중...</div>
         ) : activeTab === 'users' && (
           <div className="bg-white shadow-xl rounded-2xl overflow-hidden border-4 border-blue-200">
-            {isAdmin() && (
+            {isAdmin() && isStaffList && (
               <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex items-center justify-between gap-2">
                 <span>⋮⋮ 행을 드래그하여 교직원 순서를 변경할 수 있습니다.</span>
                 {reorderSaving && <span className="text-xs text-blue-600">저장 중...</span>}
@@ -860,7 +1029,7 @@ const Users = () => {
             <table className="w-full table-fixed divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {isAdmin() && (
+                  {isAdmin() && isStaffList && (
                     <th className="w-8 px-1 py-2 text-center text-xs font-medium text-gray-400" title="드래그">⋮⋮</th>
                   )}
                   <th className="w-8 px-2 py-2 text-left">
@@ -872,28 +1041,49 @@ const Users = () => {
                     />
                   </th>
                   <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">이름</th>
-                  <th className="w-36 px-2 py-2 text-left text-xs font-medium text-gray-500">이메일</th>
-                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">유형</th>
-                  <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
-                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">학년</th>
-                  <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">반</th>
-                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">권한</th>
-                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">등록일</th>
+                  {isStaffList ? (
+                    <>
+                      <th className="w-36 px-2 py-2 text-left text-xs font-medium text-gray-500">이메일</th>
+                      <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">유형</th>
+                      <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
+                      <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">학년</th>
+                      <th className="w-10 px-2 py-2 text-left text-xs font-medium text-gray-500">반</th>
+                      <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">권한</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="w-40 px-2 py-2 text-left text-xs font-medium text-gray-500">소속</th>
+                      <th className="w-24 px-2 py-2 text-left text-xs font-medium text-gray-500">직위</th>
+                    </>
+                  )}
+                  <th className="w-20 px-2 py-2 text-left text-xs font-medium text-gray-500">
+                    {isArchivedList ? '보관일' : '등록일'}
+                  </th>
                   <th className="w-28 px-2 py-2 text-right text-xs font-medium text-gray-500">작업</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {displayUsers.map((user) => (
+                {displayUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="px-4 py-8 text-center text-sm text-gray-400">
+                      {isExternalList
+                        ? '등록된 외부 참여자가 없습니다.'
+                        : isArchivedList
+                          ? '보관한 참여자가 없습니다.'
+                          : '등록된 교직원이 없습니다.'}
+                    </td>
+                  </tr>
+                ) : displayUsers.map((user) => (
                   <tr
                     key={user.id}
-                    draggable={isAdmin()}
+                    draggable={isAdmin() && isStaffList}
                     onDragStart={() => handleDragStart(user.id)}
                     onDragOver={handleDragOver}
                     onDrop={() => handleDrop(user.id)}
                     onDragEnd={() => setDraggingUserId(null)}
-                    className={`${selectedIds.has(user.id) ? 'bg-red-50' : ''} ${draggingUserId === user.id ? 'opacity-50' : ''} ${isAdmin() ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                    className={`${selectedIds.has(user.id) ? 'bg-red-50' : ''} ${draggingUserId === user.id ? 'opacity-50' : ''} ${isAdmin() && isStaffList ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   >
-                    {isAdmin() && (
+                    {isAdmin() && isStaffList && (
                       <td className="px-1 py-2 text-center text-gray-300 text-xs select-none">⋮⋮</td>
                     )}
                     <td className="px-2 py-2">
@@ -905,19 +1095,46 @@ const Users = () => {
                       />
                     </td>
                     <td className="px-2 py-2 text-sm font-medium text-gray-900 truncate" title={user.name}>{user.name}</td>
-                    <td className="px-2 py-2 text-sm text-gray-500 truncate" title={user.email}>{user.email}</td>
-                    <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.userType}</td>
-                    <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.position || '-'}</td>
-                    <td className="px-2 py-2 text-sm text-gray-500">{user.grade || '-'}</td>
-                    <td className="px-2 py-2 text-sm text-gray-500">{user.class || '-'}</td>
-                    <td className="px-2 py-2 text-xs text-gray-500 truncate">{
-                      deriveRole(user) === 'SUPER_ADMIN' ? '최고관리자' : deriveRole(user) === 'TRAINING_ADMIN' ? '연수관리자' : '일반'
-                    }</td>
-                    <td className="px-2 py-2 text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
-                    <td className="px-2 py-2 text-right text-xs font-medium">
-                      <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900 mr-1">수정</button>
-                      <button onClick={() => handleResetPin(user.id, user.name)} className="text-yellow-600 hover:text-yellow-900 mr-1">PIN</button>
-                      <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">삭제</button>
+                    {isStaffList ? (
+                      <>
+                        <td className="px-2 py-2 text-sm text-gray-500 truncate" title={user.email}>{user.email}</td>
+                        <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.userType}</td>
+                        <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.position || '-'}</td>
+                        <td className="px-2 py-2 text-sm text-gray-500">{user.grade || '-'}</td>
+                        <td className="px-2 py-2 text-sm text-gray-500">{user.class || '-'}</td>
+                        <td className="px-2 py-2 text-xs text-gray-500 truncate">{
+                          deriveRole(user) === 'SUPER_ADMIN' ? '최고관리자' : deriveRole(user) === 'TRAINING_ADMIN' ? '연수관리자' : '일반'
+                        }</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-2 py-2 text-sm text-gray-500 truncate" title={user.userType}>{user.userType || '-'}</td>
+                        <td className="px-2 py-2 text-sm text-gray-500 truncate">{user.position || '-'}</td>
+                      </>
+                    )}
+                    <td className="px-2 py-2 text-xs text-gray-500">
+                      {new Date(isArchivedList && user.archivedAt ? user.archivedAt : user.createdAt).toLocaleDateString('ko-KR')}
+                    </td>
+                    <td className="px-2 py-2 text-right text-xs font-medium whitespace-nowrap">
+                      {isStaffList && (
+                        <>
+                          <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900 mr-1">수정</button>
+                          <button onClick={() => handleResetPin(user.id, user.name)} className="text-yellow-600 hover:text-yellow-900 mr-1">PIN</button>
+                          <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">삭제</button>
+                        </>
+                      )}
+                      {isExternalList && (
+                        <>
+                          <button onClick={() => handleEdit(user)} className="text-indigo-600 hover:text-indigo-900 mr-1">수정</button>
+                          <button onClick={() => handleDelete(user.id)} className="text-amber-600 hover:text-amber-800">보관</button>
+                        </>
+                      )}
+                      {isArchivedList && (
+                        <>
+                          <button onClick={() => handleRestoreOne(user.id)} className="text-emerald-600 hover:text-emerald-800 mr-1">복원</button>
+                          <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">삭제</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -937,17 +1154,40 @@ const Users = () => {
                   <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">이메일</label>
-                  <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                  <label className="block text-sm font-medium text-gray-700">
+                    {editingUser && isExternalEmail(editingUser.email) ? '식별 이메일 (시스템)' : '이메일'}
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={!!(editingUser && isExternalEmail(editingUser.email))}
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">유형</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {editingUser && isExternalEmail(editingUser.email) ? '소속' : '유형'}
+                  </label>
+                  {editingUser && isExternalEmail(editingUser.email) ? (
+                    <input
+                      type="text"
+                      required
+                      value={formData.userType}
+                      onChange={(e) => setFormData({ ...formData, userType: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      placeholder="소속 기관명"
+                    />
+                  ) : (
                   <select value={formData.userType} onChange={(e) => setFormData({ ...formData, userType: e.target.value })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     {userTypes.map((type) => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
+                  )}
                 </div>
+                {!(editingUser && isExternalEmail(editingUser.email)) && (
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">직위 (선택)</label>
@@ -980,6 +1220,20 @@ const Users = () => {
                     />
                   </div>
                 </div>
+                )}
+                {editingUser && isExternalEmail(editingUser.email) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">직위 (선택)</label>
+                  <input
+                    type="text"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    placeholder="직위"
+                    className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+                )}
+                {!(editingUser && isExternalEmail(editingUser.email)) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">권한</label>
                   <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })} className="mt-1 block w-full rounded-md border-2 border-gray-400 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -991,6 +1245,7 @@ const Users = () => {
                     <br/>- 연수 관리자: 연수/통계 관리
                     <br/>- 일반 사용자: 내 연수 관리</p>
                 </div>
+                )}
                 <div className="flex justify-end space-x-2 pt-4">
                   <button type="button" onClick={() => setShowModal(false)} className="px-5 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 font-semibold transition-all">취소</button>
                   <button type="submit" className="px-5 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 font-semibold shadow-lg transition-all transform hover:scale-105 active:scale-95">저장</button>

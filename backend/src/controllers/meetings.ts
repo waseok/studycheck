@@ -516,7 +516,10 @@ export const saveMeetingSignatureByAccessToken = async (req: Request, res: Respo
           update: {
             name: userData.name,
             userType: userData.userType,
-            position: userData.position
+            position: userData.position,
+            // 보관된 외부 참여자가 다시 서명하면 목록에 복원
+            isArchived: false,
+            archivedAt: null
           }
         })
         await tx.meetingParticipant.upsert({

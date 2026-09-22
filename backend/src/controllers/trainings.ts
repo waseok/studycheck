@@ -76,6 +76,7 @@ export const createTraining = async (req: Request, res: Response) => {
     if (Array.isArray(targetUsers) && targetUsers.length > 0) {
       const matchingUsers = await prisma.user.findMany({
         where: {
+          isArchived: false,
           email: { not: { endsWith: '@studycheck.invalid' } },
           userType: {
             in: targetUsers
@@ -183,6 +184,7 @@ export const updateTraining = async (req: Request, res: Response) => {
         if (targetUsers.length > 0) {
           const matchingUsers = await tx.user.findMany({
             where: {
+              isArchived: false,
               email: { not: { endsWith: '@studycheck.invalid' } },
               userType: {
                 in: targetUsers
