@@ -27,6 +27,7 @@ const TrainingCollection = () => {
   const [isManualSort, setIsManualSort] = useState(false)
   const [showAddParticipant, setShowAddParticipant] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const role = getRole()
   const adminUser = isAdmin() || role === 'TRAINING_ADMIN'
 
@@ -206,6 +207,22 @@ const TrainingCollection = () => {
     if (!confirm(`${participant.user.name}님을 이 연수의 대상자에서 제외하시겠습니까?${completionNotice}\n사용자 계정과 다른 연수 기록은 삭제되지 않습니다.`)) return
     try {
       await removeTrainingParticipant(id, participant.user.id)
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(participant.id); return next })
+      await fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.error || '대상자 제거 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleBulkRemove = async () => {
+    if (!id || selectedIds.size === 0) return
+    const targets = filteredParticipants.filter(p => selectedIds.has(p.id) && p.user)
+    if (targets.length === 0) return
+    const names = targets.map(p => p.user!.name).join(', ')
+    if (!confirm(`선택한 ${targets.length}명을 이 연수의 대상자에서 제외하시겠습니까?\n(${names})\n\n사용자 계정과 다른 연수 기록은 삭제되지 않습니다.`)) return
+    try {
+      await Promise.all(targets.map(p => removeTrainingParticipant(id, p.user!.id)))
+      setSelectedIds(new Set())
       await fetchData()
     } catch (error: any) {
       alert(error.response?.data?.error || '대상자 제거 중 오류가 발생했습니다.')
@@ -420,6 +437,14 @@ const TrainingCollection = () => {
               >
                 ➕ 대상자 추가
               </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleBulkRemove}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-extrabold shadow-sm"
+                >
+                  선택 {selectedIds.size}명 제외
+                </button>
+              )}
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -471,6 +496,20 @@ const TrainingCollection = () => {
             <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
+                  {adminUser && (
+                    <th className="w-8 px-2 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-indigo-600 border-2 border-gray-400 rounded"
+                        checked={filteredParticipants.length > 0 && filteredParticipants.every(p => selectedIds.has(p.id))}
+                        onChange={e => {
+                          if (e.target.checked) setSelectedIds(new Set(filteredParticipants.map(p => p.id)))
+                          else setSelectedIds(new Set())
+                        }}
+                        title="전체 선택"
+                      />
+                    </th>
+                  )}
                   <th className="w-8 px-1 py-2 text-left text-xs font-medium text-gray-500">#</th>
                   <th className="w-11 px-1 py-2 text-left text-xs font-medium text-gray-500">직위</th>
                   <th className="w-7 px-1 py-2 text-center text-xs font-medium text-gray-500">학년</th>
@@ -521,6 +560,13 @@ const TrainingCollection = () => {
                     isAdmin={adminUser}
                     onMoveUp={() => moveRow(index, 'up')}
                     onMoveDown={() => moveRow(index, 'down')}
+                    selected={selectedIds.has(participant.id)}
+                    onSelect={checked => setSelectedIds(prev => {
+                      const next = new Set(prev)
+                      if (checked) next.add(participant.id)
+                      else next.delete(participant.id)
+                      return next
+                    })}
                   />
                 ))}
               </tbody>
@@ -553,9 +599,11 @@ interface ParticipantRowProps {
   isAdmin: boolean
   onMoveUp: () => void
   onMoveDown: () => void
+  selected: boolean
+  onSelect: (checked: boolean) => void
 }
 
-const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, onRemove, isAdmin, onMoveUp, onMoveDown }: ParticipantRowProps) => {
+const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, onRemove, isAdmin, onMoveUp, onMoveDown, selected, onSelect }: ParticipantRowProps) => {
   const [editing, setEditing] = useState(false)
   const [completionNumber, setCompletionNumber] = useState(participant.completionNumber || '')
   const [completionName, setCompletionName] = useState(participant.completionName || '')
@@ -584,7 +632,17 @@ const ParticipantRow = ({ index, totalCount, participant, onUpdate, onCancel, on
   }
 
   return (
-    <tr className="align-top">
+    <tr className={`align-top${selected ? ' bg-red-50' : ''}`}>
+      {isAdmin && (
+        <td className="px-2 py-2 text-center">
+          <input
+            type="checkbox"
+            className="h-4 w-4 text-indigo-600 border-2 border-gray-400 rounded"
+            checked={selected}
+            onChange={e => onSelect(e.target.checked)}
+          />
+        </td>
+      )}
       <td className="px-1 py-2 text-xs font-medium text-gray-900">{index + 1}</td>
       <td className="px-1 py-2 text-xs text-gray-500 truncate max-w-[2.75rem]" title={participant.user?.position || ''}>
         {participant.user?.position || '-'}
