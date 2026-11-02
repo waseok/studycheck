@@ -35,7 +35,8 @@ const MeetingDetail = () => {
     agenda: '',
     date: '',
     location: '',
-    allowExternalSignatures: false
+    allowExternalSignatures: false,
+    unifiedView: false
   })
   const [showShareLinkModal, setShowShareLinkModal] = useState(false)
   const [shareLinkDays, setShareLinkDays] = useState('3')
@@ -304,7 +305,8 @@ const MeetingDetail = () => {
         agenda: editForm.agenda || undefined,
         date: editForm.date || undefined,
         location: editForm.location || undefined,
-        allowExternalSignatures: editForm.allowExternalSignatures
+        allowExternalSignatures: editForm.allowExternalSignatures,
+        unifiedView: editForm.unifiedView
       })
       setEditing(false)
       await fetchData()
@@ -382,7 +384,8 @@ const MeetingDetail = () => {
                       agenda: data.meeting.agenda || '',
                       date: data.meeting.date || '',
                       location: data.meeting.location || '',
-                      allowExternalSignatures: data.meeting.allowExternalSignatures
+                      allowExternalSignatures: data.meeting.allowExternalSignatures,
+                      unifiedView: data.meeting.unifiedView
                     })
                     setEditing(true)
                   }}
@@ -780,6 +783,20 @@ const MeetingDetail = () => {
                   <span className="block text-sm font-bold text-green-900">외부 참여자 서명 허용</span>
                   <span className="block text-xs text-green-700 mt-0.5">
                     외부 참석자가 공개 링크에서 소속·성명·직위를 입력하고 직접 서명할 수 있습니다.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.unifiedView}
+                  onChange={e => setEditForm(f => ({ ...f, unifiedView: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-blue-900">통합 서명 뷰</span>
+                  <span className="block text-xs text-blue-700 mt-0.5">
+                    교직원·외부 탭 구분 없이 전체 참가자가 하나의 목록에 표시됩니다.
                   </span>
                 </span>
               </label>

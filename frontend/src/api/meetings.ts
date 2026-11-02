@@ -28,6 +28,7 @@ export interface Meeting {
   date: string | null
   location: string | null
   allowExternalSignatures: boolean
+  unifiedView: boolean
   isCompleted: boolean
   completedAt: string | null
   participants: { id: string; user: { id: string; name: string } }[]
@@ -42,6 +43,7 @@ export interface MeetingDetail {
     date: string | null
     location: string | null
     allowExternalSignatures: boolean
+    unifiedView: boolean
     isCompleted: boolean
     completedAt: string | null
   }
@@ -98,6 +100,7 @@ export const updateMeeting = async (id: string, data: {
   date?: string
   location?: string
   allowExternalSignatures?: boolean
+  unifiedView?: boolean
 }): Promise<Meeting> => {
   const response = await apiClient.put<Meeting>(`/meetings/${id}`, data)
   return response.data

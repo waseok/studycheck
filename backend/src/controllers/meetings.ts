@@ -134,6 +134,7 @@ export const getMeeting = async (req: Request, res: Response) => {
         date: meeting.date,
         location: meeting.location,
         allowExternalSignatures: meeting.allowExternalSignatures,
+        unifiedView: meeting.unifiedView,
         isCompleted: meeting.isCompleted,
         completedAt: meeting.completedAt
       },
@@ -185,8 +186,8 @@ export const createMeeting = async (req: Request, res: Response) => {
 export const updateMeeting = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, agenda, date, location, allowExternalSignatures } = req.body as {
-      name?: string; agenda?: string; date?: string; location?: string; allowExternalSignatures?: boolean
+    const { name, agenda, date, location, allowExternalSignatures, unifiedView } = req.body as {
+      name?: string; agenda?: string; date?: string; location?: string; allowExternalSignatures?: boolean; unifiedView?: boolean
     }
     const meeting = await prisma.meeting.update({
       where: { id },
@@ -195,7 +196,8 @@ export const updateMeeting = async (req: Request, res: Response) => {
         ...(agenda !== undefined && { agenda: agenda?.trim() || null }),
         ...(date !== undefined && { date: date?.trim() || null }),
         ...(location !== undefined && { location: location?.trim() || null }),
-        ...(allowExternalSignatures !== undefined && { allowExternalSignatures: !!allowExternalSignatures })
+        ...(allowExternalSignatures !== undefined && { allowExternalSignatures: !!allowExternalSignatures }),
+        ...(unifiedView !== undefined && { unifiedView: !!unifiedView })
       }
     })
     res.json(meeting)
@@ -469,6 +471,7 @@ export const getMeetingByAccessToken = async (req: Request, res: Response) => {
         date: meeting.date,
         location: meeting.location,
         allowExternalSignatures: meeting.allowExternalSignatures,
+        unifiedView: meeting.unifiedView,
         isCompleted: meeting.isCompleted,
         completedAt: meeting.completedAt
       },
