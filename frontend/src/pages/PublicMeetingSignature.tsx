@@ -3,6 +3,15 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
 import { getPublicMeeting, savePublicMeetingSignature, MeetingParticipant } from '../api/meetings'
 
+const ORG_PATTERN = /^.*?(초등학교|중학교|고등학교|특수학교|유치원|교육지원청|교육청|교육부|대학교|대학)/
+
+// 소속에서 부서·직책을 떼고 학교/교육청 등 기관명까지만 남긴다
+const getOrgName = (affiliation: string): string => {
+  const text = (affiliation || '').trim()
+  if (!text || text === '외부 대상자') return ''
+  return text.match(ORG_PATTERN)?.[0] ?? text
+}
+
 const PublicMeetingSignature = () => {
   const { meetingId } = useParams<{ meetingId: string }>()
   const [searchParams] = useSearchParams()
@@ -108,7 +117,9 @@ const PublicMeetingSignature = () => {
   // unified view: show isExternal label in dropdown
   const getParticipantLabel = (p: MeetingParticipant) => {
     const status = p.signature ? '서명완료' : p.absenceReason ? '불참' : '미서명'
-    return p.isExternal ? `[외부] ${p.name} (${status})` : `${p.name} (${status})`
+    if (!p.isExternal) return `${p.name} (${status})`
+    const org = getOrgName(p.userType)
+    return org ? `${p.name} · ${org} (${status})` : `${p.name} (${status})`
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">불러오는 중...</div>
