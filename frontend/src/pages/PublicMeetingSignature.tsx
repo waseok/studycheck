@@ -18,6 +18,8 @@ const PublicMeetingSignature = () => {
   const [externalForm, setExternalForm] = useState({ affiliation: '', name: '', position: '' })
   const [hideSigned, setHideSigned] = useState(false)
   const [signComplete, setSignComplete] = useState(false)
+  // unified view: 'list' = select from pre-registered, 'direct' = direct input
+  const [unifiedMode, setUnifiedMode] = useState<'list' | 'direct'>('list')
 
   const fetchData = useCallback(async () => {
     if (!meetingId || !token) {
@@ -30,7 +32,8 @@ const PublicMeetingSignature = () => {
       setData(result)
       const selectableParticipants = result.participants.filter(p => !p.isSelfRegistered)
       if (result.meeting.allowExternalSignatures && selectableParticipants.length === 0) {
-        setSignerType('external')
+        if (result.meeting.unifiedView) setUnifiedMode('direct')
+        else setSignerType('external')
       }
     } catch (err: any) {
       setError(err?.response?.data?.error || '서명 정보를 불러오지 못했습니다.')
@@ -43,17 +46,20 @@ const PublicMeetingSignature = () => {
     fetchData()
   }, [fetchData])
 
+  const isUnified = Boolean(data?.meeting.unifiedView)
+  const isDirect = isUnified ? unifiedMode === 'direct' : signerType === 'external'
+
   const handleSign = async () => {
     if (!meetingId || !token || !signaturePadRef.current) return
-    if (signerType === 'staff' && !selectedUserId) {
+    if (!isDirect && !selectedUserId) {
       alert('서명하기 전에 본인의 이름을 선택하세요!')
       return
     }
-    if (signerType === 'external' && !externalForm.affiliation.trim()) {
+    if (isDirect && !externalForm.affiliation.trim()) {
       alert('소속을 입력해주세요.')
       return
     }
-    if (signerType === 'external' && !externalForm.name.trim()) {
+    if (isDirect && !externalForm.name.trim()) {
       alert('성명을 입력해주세요.')
       return
     }
@@ -67,8 +73,8 @@ const PublicMeetingSignature = () => {
         meetingId,
         token,
         signaturePadRef.current.toDataURL(),
-        signerType === 'staff' ? selectedUserId : undefined,
-        signerType === 'external'
+        !isDirect ? selectedUserId : undefined,
+        isDirect
           ? {
               affiliation: externalForm.affiliation.trim(),
               name: externalForm.name.trim(),
@@ -99,6 +105,12 @@ const PublicMeetingSignature = () => {
     ? sortedParticipants.filter((p) => !p.signature && !p.absenceReason)
     : sortedParticipants
 
+  // unified view: show isExternal label in dropdown
+  const getParticipantLabel = (p: MeetingParticipant) => {
+    const status = p.signature ? '서명완료' : p.absenceReason ? '불참' : '미서명'
+    return p.isExternal ? `[외부] ${p.name} (${status})` : `${p.name} (${status})`
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">불러오는 중...</div>
 
   if (signComplete) {
@@ -121,121 +133,266 @@ const PublicMeetingSignature = () => {
         <p className="text-slate-600 text-sm mb-4">{data?.meeting?.name || '-'}</p>
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{error}</div>}
 
-        {data?.meeting.allowExternalSignatures && (
-          <div className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setSignerType('staff')}
-              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
-                signerType === 'staff' ? 'bg-white text-green-700 shadow' : 'text-slate-500 hover:text-slate-700'
+        {/* Unified view */}
+        {isUnified ? (
+          <>
+            {/* 상단: 직접 입력 (사전 미등록자) */}
+            {data?.meeting.allowExternalSignatures && (
+              <div className={`mb-4 rounded-xl border-2 p-4 cursor-pointer transition ${
+                unifiedMode === 'direct'
+                  ? 'border-purple-400 bg-purple-50'
+                  : 'border-slate-200 bg-slate-50 hover:border-purple-300'
               }`}
-            >
-              본교 교직원
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSignerType('external'); setSelectedUserId('') }}
-              className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
-                signerType === 'external' ? 'bg-white text-purple-700 shadow' : 'text-slate-500 hover:text-slate-700'
+                onClick={() => { setUnifiedMode('direct'); setSelectedUserId('') }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="radio"
+                    readOnly
+                    checked={unifiedMode === 'direct'}
+                    className="accent-purple-600"
+                  />
+                  <span className="font-bold text-purple-900 text-sm">사전에 등록되지 않으신 분 — 직접 입력</span>
+                </div>
+                {unifiedMode === 'direct' && (
+                  <div className="space-y-3 mt-2" onClick={e => e.stopPropagation()}>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">소속 *</label>
+                      <input
+                        type="text"
+                        maxLength={100}
+                        value={externalForm.affiliation}
+                        onChange={e => setExternalForm(f => ({ ...f, affiliation: e.target.value }))}
+                        placeholder="예: 파주교육지원청, ○○초등학교"
+                        className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">성명 *</label>
+                        <input
+                          type="text"
+                          maxLength={50}
+                          value={externalForm.name}
+                          onChange={e => setExternalForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="성명"
+                          className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">직위</label>
+                        <input
+                          type="text"
+                          maxLength={50}
+                          value={externalForm.position}
+                          onChange={e => setExternalForm(f => ({ ...f, position: e.target.value }))}
+                          placeholder="예: 장학사"
+                          className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 구분선 */}
+            {data?.meeting.allowExternalSignatures && sortedParticipants.length > 0 && (
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 border-t border-slate-200" />
+                <span className="text-xs text-slate-400">또는</span>
+                <div className="flex-1 border-t border-slate-200" />
+              </div>
+            )}
+
+            {/* 하단: 사전 등록자 선택 */}
+            {sortedParticipants.length > 0 && (
+              <div className={`mb-4 rounded-xl border-2 p-4 cursor-pointer transition ${
+                unifiedMode === 'list'
+                  ? 'border-green-400 bg-green-50'
+                  : 'border-slate-200 bg-slate-50 hover:border-green-300'
               }`}
-            >
-              외부 참여자
-            </button>
-          </div>
-        )}
-
-        {signerType === 'staff' && sortedParticipants.length ? (
-          <div className="mb-4 text-sm text-slate-700">
-            <div className="mb-3 bg-amber-50 border-2 border-amber-400 rounded-lg px-4 py-3 text-amber-900 font-semibold text-center">
-              ⚠️ 서명하기 전에 본인의 이름을 선택하세요!
-            </div>
-            <label className="inline-flex items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                checked={hideSigned}
-                onChange={(e) => setHideSigned(e.target.checked)}
-              />
-              <span>서명완료자 숨기기</span>
-            </label>
-            <label className="block mb-1 font-medium">대상자 선택</label>
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">▼ 본인의 이름을 선택하세요</option>
-              {visibleParticipants.map((p) => (
-                <option key={p.userId} value={p.userId}>
-                  {p.name} ({p.signature ? '서명완료' : p.absenceReason ? '불참' : '미서명'})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-
-        {signerType === 'external' && data?.meeting.allowExternalSignatures && (
-          <div className="mb-4 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
-            <h2 className="font-bold text-purple-900 mb-1">외부 참여자 정보</h2>
-            <p className="text-xs text-purple-700 mb-3">소속과 성명을 정확히 입력해 주세요. 직위는 선택사항입니다.</p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">소속 *</label>
-                <input
-                  type="text"
-                  maxLength={100}
-                  value={externalForm.affiliation}
-                  onChange={e => setExternalForm(f => ({ ...f, affiliation: e.target.value }))}
-                  placeholder="예: 파주교육지원청, ○○초등학교"
-                  className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">성명 *</label>
+                onClick={() => setUnifiedMode('list')}
+              >
+                <div className="flex items-center gap-2 mb-2">
                   <input
-                    type="text"
-                    maxLength={50}
-                    value={externalForm.name}
-                    onChange={e => setExternalForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="성명"
-                    className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    type="radio"
+                    readOnly
+                    checked={unifiedMode === 'list'}
+                    className="accent-green-600"
                   />
+                  <span className="font-bold text-green-900 text-sm">사전에 등록하신 분 — 이름 선택</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">직위</label>
-                  <input
-                    type="text"
-                    maxLength={50}
-                    value={externalForm.position}
-                    onChange={e => setExternalForm(f => ({ ...f, position: e.target.value }))}
-                    placeholder="예: 장학사"
-                    className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
-                  />
-                </div>
+                {unifiedMode === 'list' && (
+                  <div onClick={e => e.stopPropagation()}>
+                    <label className="inline-flex items-center gap-2 mb-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={hideSigned}
+                        onChange={(e) => setHideSigned(e.target.checked)}
+                      />
+                      <span>서명완료자 숨기기</span>
+                    </label>
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">▼ 본인의 이름을 선택하세요</option>
+                      {visibleParticipants.map((p) => (
+                        <option key={p.userId} value={p.userId}>
+                          {getParticipantLabel(p)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {signerType === 'staff' && !selectedUserId ? (
-          <div className="bg-gray-50 border border-gray-200 text-gray-500 rounded px-4 py-6 text-center text-sm">
-            위 목록에서 본인의 이름을 선택한 후 서명해 주세요.
-          </div>
-        ) : signerType === 'staff' && completed ? (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded px-4 py-3">이미 서명이 완료되었습니다.</div>
-        ) : signerType === 'staff' && isAbsent ? (
-          <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded px-4 py-3">
-            불참 처리된 대상자입니다. ({participant?.absenceReason})
-          </div>
+            {/* 서명 패드 */}
+            {unifiedMode === 'list' && !selectedUserId ? (
+              <div className="bg-gray-50 border border-gray-200 text-gray-500 rounded px-4 py-6 text-center text-sm">
+                위에서 본인의 이름을 선택한 후 서명해 주세요.
+              </div>
+            ) : unifiedMode === 'list' && completed ? (
+              <div className="bg-green-50 border border-green-200 text-green-700 rounded px-4 py-3">이미 서명이 완료되었습니다.</div>
+            ) : unifiedMode === 'list' && isAbsent ? (
+              <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded px-4 py-3">
+                불참 처리된 대상자입니다. ({participant?.absenceReason})
+              </div>
+            ) : (
+              <>
+                <SignaturePad ref={signaturePadRef} />
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => signaturePadRef.current?.clear()} className="px-4 py-2 rounded border border-gray-300 text-gray-700">지우기</button>
+                  <button onClick={handleSign} disabled={saving} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">
+                    {saving ? '저장 중...' : '서명 완료'}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <>
-            <SignaturePad ref={signaturePadRef} />
-            <div className="mt-3 flex gap-2">
-              <button onClick={() => signaturePadRef.current?.clear()} className="px-4 py-2 rounded border border-gray-300 text-gray-700">지우기</button>
-              <button onClick={handleSign} disabled={saving} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">
-                {saving ? '저장 중...' : '서명 완료'}
-              </button>
-            </div>
+            {/* Standard two-tab view */}
+            {data?.meeting.allowExternalSignatures && (
+              <div className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSignerType('staff')}
+                  className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                    signerType === 'staff' ? 'bg-white text-green-700 shadow' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  본교 교직원
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSignerType('external'); setSelectedUserId('') }}
+                  className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                    signerType === 'external' ? 'bg-white text-purple-700 shadow' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  외부 참여자
+                </button>
+              </div>
+            )}
+
+            {signerType === 'staff' && sortedParticipants.length ? (
+              <div className="mb-4 text-sm text-slate-700">
+                <div className="mb-3 bg-amber-50 border-2 border-amber-400 rounded-lg px-4 py-3 text-amber-900 font-semibold text-center">
+                  ⚠️ 서명하기 전에 본인의 이름을 선택하세요!
+                </div>
+                <label className="inline-flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={hideSigned}
+                    onChange={(e) => setHideSigned(e.target.checked)}
+                  />
+                  <span>서명완료자 숨기기</span>
+                </label>
+                <label className="block mb-1 font-medium">대상자 선택</label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">▼ 본인의 이름을 선택하세요</option>
+                  {visibleParticipants.map((p) => (
+                    <option key={p.userId} value={p.userId}>
+                      {p.name} ({p.signature ? '서명완료' : p.absenceReason ? '불참' : '미서명'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {signerType === 'external' && data?.meeting.allowExternalSignatures && (
+              <div className="mb-4 rounded-xl border-2 border-purple-200 bg-purple-50 p-4">
+                <h2 className="font-bold text-purple-900 mb-1">외부 참여자 정보</h2>
+                <p className="text-xs text-purple-700 mb-3">소속과 성명을 정확히 입력해 주세요. 직위는 선택사항입니다.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">소속 *</label>
+                    <input
+                      type="text"
+                      maxLength={100}
+                      value={externalForm.affiliation}
+                      onChange={e => setExternalForm(f => ({ ...f, affiliation: e.target.value }))}
+                      placeholder="예: 파주교육지원청, ○○초등학교"
+                      className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">성명 *</label>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={externalForm.name}
+                        onChange={e => setExternalForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="성명"
+                        className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">직위</label>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={externalForm.position}
+                        onChange={e => setExternalForm(f => ({ ...f, position: e.target.value }))}
+                        placeholder="예: 장학사"
+                        className="w-full rounded-lg border-2 border-purple-200 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {signerType === 'staff' && !selectedUserId ? (
+              <div className="bg-gray-50 border border-gray-200 text-gray-500 rounded px-4 py-6 text-center text-sm">
+                위 목록에서 본인의 이름을 선택한 후 서명해 주세요.
+              </div>
+            ) : signerType === 'staff' && completed ? (
+              <div className="bg-green-50 border border-green-200 text-green-700 rounded px-4 py-3">이미 서명이 완료되었습니다.</div>
+            ) : signerType === 'staff' && isAbsent ? (
+              <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded px-4 py-3">
+                불참 처리된 대상자입니다. ({participant?.absenceReason})
+              </div>
+            ) : (
+              <>
+                <SignaturePad ref={signaturePadRef} />
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => signaturePadRef.current?.clear()} className="px-4 py-2 rounded border border-gray-300 text-gray-700">지우기</button>
+                  <button onClick={handleSign} disabled={saving} className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50">
+                    {saving ? '저장 중...' : '서명 완료'}
+                  </button>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

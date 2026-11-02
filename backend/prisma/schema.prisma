@@ -114,6 +114,7 @@ model Meeting {
   date        String?   // 일시 (텍스트)
   location    String?   // 장소
   allowExternalSignatures Boolean @default(false) @map("allow_external_signatures") // 외부 참여자 직접 등록·서명 허용
+  unifiedView Boolean @default(false) @map("unified_view") // 교직원/외부 통합 서명 뷰
   isCompleted Boolean   @default(false) @map("is_completed")
   completedAt DateTime? @map("completed_at")
   createdById String    @map("created_by_id")
