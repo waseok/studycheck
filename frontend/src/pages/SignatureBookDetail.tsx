@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import ParticipantAddModal from '../components/ParticipantAddModal'
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad'
+import ShareLinkQr from '../components/ShareLinkQr'
 import {
   getSignatureBook, saveSignature, deleteSignature, syncSignatureStatus, getSavedSignature,
   saveSavedSignature, SignatureBookData, SignatureParticipant, createTrainingSignatureShareLink
@@ -695,7 +696,7 @@ const SignatureBookDetail = () => {
       {/* 서명 링크 생성 모달 */}
       {showShareLinkModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 mb-3">서명하기 링크 만들기</h3>
             {shareLinkUrl ? (
               <div className="space-y-3">
@@ -707,6 +708,7 @@ const SignatureBookDetail = () => {
                 <button onClick={handleCopyCreatedLink} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   링크 복사
                 </button>
+                <ShareLinkQr url={shareLinkUrl} title={data?.training.name || '연수등록부'} />
               </div>
             ) : (
               <div className="space-y-3">
