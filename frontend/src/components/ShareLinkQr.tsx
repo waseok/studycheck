@@ -29,6 +29,9 @@ const ShareLinkQr = ({ url, title }: ShareLinkQrProps) => {
       if (!canvas) return
       // 오류 정정 H(30%)라 가운데를 교표로 가려도 스캔된다
       await QRCode.toCanvas(canvas, url, { errorCorrectionLevel: 'H', width: QR_SIZE, margin: 2 })
+      // 라이브러리가 인라인으로 넣는 720px 크기를 덮어써서 화면에서는 모달 폭에 맞춘다 (다운로드는 내부 해상도 그대로)
+      canvas.style.width = '100%'
+      canvas.style.height = 'auto'
       try {
         const logo = await loadImage('/school-logo.png')
         if (cancelled) return
@@ -67,8 +70,8 @@ const ShareLinkQr = ({ url, title }: ShareLinkQrProps) => {
   return (
     <div className="space-y-2">
       <div className="text-sm text-gray-700">QR 코드</div>
-      <div className="flex justify-center">
-        <canvas ref={canvasRef} className="w-56 h-56 rounded-lg border border-gray-200" />
+      <div className="w-full max-w-[288px] mx-auto">
+        <canvas ref={canvasRef} className="block rounded-lg border border-gray-200" />
       </div>
       <button
         onClick={handleDownload}
