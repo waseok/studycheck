@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 
 interface ShareLinkQrProps {
@@ -19,7 +20,9 @@ const loadImage = (src: string) =>
 
 const ShareLinkQr = ({ url, title }: ShareLinkQrProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const zoomCanvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
+  const [zoomed, setZoomed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -58,6 +61,20 @@ const ShareLinkQr = ({ url, title }: ShareLinkQrProps) => {
     return () => { cancelled = true }
   }, [url])
 
+  useEffect(() => {
+    if (!zoomed) return
+    const src = canvasRef.current
+    const dst = zoomCanvasRef.current
+    if (src && dst) {
+      dst.width = src.width
+      dst.height = src.height
+      dst.getContext('2d')?.drawImage(src, 0, 0)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoomed(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomed])
+
   const handleDownload = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -74,12 +91,38 @@ const ShareLinkQr = ({ url, title }: ShareLinkQrProps) => {
         <canvas ref={canvasRef} className="block rounded-lg border border-gray-200" />
       </div>
       <button
+        onClick={() => setZoomed(true)}
+        disabled={!ready}
+        className="w-full px-4 py-2 border-2 border-emerald-600 text-emerald-700 font-semibold rounded-lg hover:bg-emerald-50 disabled:opacity-50"
+      >
+        ＋ QR 크게 보기
+      </button>
+      <button
         onClick={handleDownload}
         disabled={!ready}
         className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
       >
         QR 코드 다운로드
       </button>
+      {zoomed && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-4 gap-3"
+          onClick={() => setZoomed(false)}
+        >
+          <div className="text-center text-base font-bold text-gray-900 max-w-full break-keep px-10">{title}</div>
+          {/* 가로·세로 중 작은 쪽에 맞춰 정사각형으로 표시해서 어떤 화면에서도 잘리지 않는다 */}
+          <div style={{ width: 'min(100%, calc(100dvh - 150px))', maxWidth: 'calc(100vw - 32px)', aspectRatio: '1 / 1' }}>
+            <canvas ref={zoomCanvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setZoomed(false) }}
+            className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900"
+          >
+            닫기
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
